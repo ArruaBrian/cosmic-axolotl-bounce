@@ -242,27 +242,35 @@ const QuadrantChart = ({
           {axes.xLeft}
         </div>
 
-        {/* X-axis numbers (bottom) */}
+        {/* X-axis numbers (OUTSIDE - bottom) */}
         <div 
           className="absolute flex justify-between pointer-events-none z-30"
           style={{ 
             left: PADDING, 
-            right: PADDING, 
-            bottom: "2px",
+            right: PADDING - 20, 
+            bottom: "6px",
           }}
         >
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
-            <span key={i} className="text-[9px] text-slate-400 font-medium w-0 text-center">
+            <span key={i} className="text-[9px] text-slate-400 font-medium text-center" style={{ width: cellSize }}>
               {i}
             </span>
           ))}
         </div>
 
-        {/* Y-axis numbers (left side) */}
-        <div className="absolute top-0 bottom-0 left-0 flex flex-col justify-between pointer-events-none z-30" style={{ paddingTop: PADDING, paddingBottom: PADDING }}>
-          {Array.from({ length: GRID_SIZE + 1 }).reverse().map((_, i) => (
-            <span key={i} className="text-[9px] text-slate-400 font-medium absolute left-[2px]" style={{ top: i * cellSize }}>
-              {i}
+        {/* Y-axis numbers (OUTSIDE - left side) */}
+        <div 
+          className="absolute flex flex-col justify-between pointer-events-none z-30"
+          style={{ 
+            left: "4px", 
+            top: PADDING, 
+            bottom: PADDING,
+            height: graphSize,
+          }}
+        >
+          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
+            <span key={i} className="text-[9px] text-slate-400 font-medium text-right" style={{ height: cellSize, lineHeight: `${cellSize}px` }}>
+              {GRID_SIZE - i}
             </span>
           ))}
         </div>

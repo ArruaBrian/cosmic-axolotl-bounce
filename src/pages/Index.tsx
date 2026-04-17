@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -15,12 +14,10 @@ import {
   TrendingUp,
   Brain,
   Plus,
-  Sparkles,
   Loader2,
   Send,
   Check,
   X,
-  MessageCircle,
 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -66,6 +63,42 @@ const QUADRANT_COLORS = {
   "bottom-right": "bg-violet-400",
 };
 
+// Helper to extract item name from user input
+const extractItemName = (input: string): string => {
+  const normalized = input.trim().toLowerCase();
+  
+  // Remove common prefixes
+  const prefixes = [
+    "agregame",
+    "agrega",
+    "agregar",
+    "añademe",
+    "añade",
+    "añadir",
+    "ponme",
+    "pon",
+    "put",
+    "add",
+    "quiero agregar",
+    "quiero añadir",
+  ];
+  
+  let result = input.trim();
+  for (const prefix of prefixes) {
+    if (normalized.startsWith(prefix)) {
+      result = result.slice(prefix.length).trim();
+      break;
+    }
+  }
+  
+  // Capitalize first letter
+  if (result.length > 0) {
+    result = result.charAt(0).toUpperCase() + result.slice(1);
+  }
+  
+  return result || input.trim();
+};
+
 const Index = () => {
   const [points, setPoints] = useState<DataPoint[]>([
     { id: "1", name: "Ing. Petróleo", x: 3, y: 8, color: QUADRANT_COLORS["top-left"], quadrant: "top-left" },
@@ -95,7 +128,6 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState("");
   
-  // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -255,15 +287,22 @@ No incluyas ningún otro texto besides el JSON.`;
         throw new Error("Invalid response format");
       }
     } catch (error) {
-      // Demo response when API fails
+      // Demo response when API fails - extract just the item name
+      const itemName = extractItemName(chatInput);
+      
       const demoSuggestions: SuggestedItem[] = [
-        { name: chatInput.trim(), x: 7, y: 6, reasoning: "Basado en el contexto del gráfico" }
+        { 
+          name: itemName, 
+          x: 6, 
+          y: 7, 
+          reasoning: `Sugiero colocarlo en el cuadrante de arriba-derecha (alto ${axes.yLabel}, alta ${axes.xLabel})` 
+        }
       ];
 
       const aiMessage: ChatMessage = {
         id: generateId(),
         role: "ai",
-        content: `Entiendo que quieres agregar "${chatInput.trim()}" al gráfico. Te sugiero colocarlo en el cuadrante de arriba-derecha (alto ${axes.yLabel}, alta ${axes.xLabel}). ¿Quieres que lo agregue?`,
+        content: `Entiendo que quieres agregar "${itemName}" al gráfico. Te sugiero colocarlo en el cuadrante de arriba-derecha (alto ${axes.yLabel}, alta ${axes.xLabel}). ¿Quieres que lo agregue?`,
         suggestedItems: demoSuggestions,
         timestamp: new Date(),
       };
@@ -291,7 +330,6 @@ No incluyas ningún otro texto besides el JSON.`;
     setPoints([...points, newPoint]);
     showSuccess(`"${item.name}" agregado al gráfico`);
     
-    // Remove the suggestion from the last AI message
     setChatMessages(prev => prev.map(msg => {
       if (msg.role === "ai" && msg.suggestedItems) {
         return {
@@ -323,7 +361,6 @@ No incluyas ningún otro texto besides el JSON.`;
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Clasificador de 4 Cuadrantes
@@ -334,7 +371,6 @@ No incluyas ningún otro texto besides el JSON.`;
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Chart Section */}
           <div className="lg:col-span-2">
             <Card className="p-4 md:p-6 shadow-lg rounded-2xl">
               <QuadrantChart
@@ -346,7 +382,6 @@ No incluyas ningún otro texto besides el JSON.`;
               />
             </Card>
 
-            {/* Legend */}
             <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-rose-100 border border-rose-200 rounded-xl p-3 text-center">
                 <div className="w-3 h-3 bg-rose-400 rounded-full mx-auto mb-1" />
@@ -371,7 +406,6 @@ No incluyas ningún otro texto besides el JSON.`;
             </div>
           </div>
 
-          {/* Controls Section */}
           <div className="space-y-4">
             <Card className="p-4 shadow-lg rounded-2xl">
               <Tabs defaultValue="add">
@@ -413,7 +447,6 @@ No incluyas ningún otro texto besides el JSON.`;
 
                 <TabsContent value="ai" className="mt-4">
                   <div className="space-y-4">
-                    {/* API Key Input */}
                     <div>
                       <Label htmlFor="apiKey" className="text-xs">API Key de MiniMax</Label>
                       <Input
@@ -426,7 +459,6 @@ No incluyas ningún otro texto besides el JSON.`;
                       />
                     </div>
 
-                    {/* Chat Messages */}
                     <ScrollArea className="h-[280px] pr-4">
                       <div className="space-y-4">
                         {chatMessages.map((msg) => (
@@ -439,7 +471,6 @@ No incluyas ningún otro texto besides el JSON.`;
                                 <div className="flex-1">
                                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                                   
-                                  {/* Suggested Items */}
                                   {msg.suggestedItems && msg.suggestedItems.length > 0 && (
                                     <div className="mt-3 space-y-2">
                                       <p className="text-xs font-medium opacity-75">¿Agregar al gráfico?</p>
@@ -495,7 +526,6 @@ No incluyas ningún otro texto besides el JSON.`;
                       </div>
                     </ScrollArea>
 
-                    {/* Chat Input */}
                     <div className="flex gap-2">
                       <Input
                         value={chatInput}
@@ -580,7 +610,6 @@ No incluyas ningún otro texto besides el JSON.`;
               </Tabs>
             </Card>
 
-            {/* Points List */}
             <Card className="p-4 shadow-lg rounded-2xl">
               <h3 className="font-semibold mb-3 flex items-center">
                 <TrendingUp className="w-4 h-4 mr-2 text-indigo-600" />

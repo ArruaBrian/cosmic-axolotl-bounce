@@ -241,6 +241,11 @@ Cuando el usuario activa el modo Plan, DEBES:
 2. Definir nuevos ejes para el gráfico
 3. Proponer elementos para el nuevo gráfico
 
+IMPORTANTE sobre los ejes:
+- xLabel e yLabel: El nombre del eje (ej: "Ingresos", "Satisfacción", "Dificultad")
+- xLeft, xRight, yBottom, yTop: SIEMPRE deben ser PALABRAS opuestas (ej: "Bajo/Alto", "Fácil/Difícil", "Poco/Mucho", "No/Sí")
+- NUNCA uses números como "0" o "10" en los valores de los ejes
+
 Tu respuesta SIEMPRE debe incluir una propuesta completa.
 
 Responde SOLO en formato JSON con este esquema:
@@ -251,12 +256,12 @@ Responde SOLO en formato JSON con este esquema:
     "description": "Descripción clara del nuevo gráfico",
     "newPoints": [{"name": "nombre del elemento", "x": 0-10, "y": 0-10}],
     "newAxes": {
-      "xLabel": "nombre del eje X",
-      "yLabel": "nombre del eje Y",
-      "xLeft": "valor negativo del eje X",
-      "xRight": "valor positivo del eje X",
-      "yBottom": "valor negativo del eje Y",
-      "yTop": "valor positivo del eje Y"
+      "xLabel": "nombre del eje X (ej: Ingresos)",
+      "yLabel": "nombre del eje Y (ej: Satisfacción)", 
+      "xLeft": "palabra opuesta izquierda (ej: Bajo)",
+      "xRight": "palabra opuesta derecha (ej: Alto)",
+      "yBottom": "palabra opuesta abajo (ej: No)",
+      "yTop": "palabra opuesta arriba (ej: Sí)"
     }
   }
 }

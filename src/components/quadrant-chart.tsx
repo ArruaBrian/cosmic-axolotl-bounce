@@ -58,6 +58,7 @@ const QuadrantChart = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
   const [dragging, setDragging] = useState<string | null>(null);
+  const [draggedDistance, setDraggedDistance] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPoint, setEditingPoint] = useState<DataPoint | null>(null);
@@ -120,10 +121,13 @@ const QuadrantChart = ({
     e.preventDefault();
     e.stopPropagation();
     setDragging(id);
+    setDraggedDistance(0);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!dragging) return;
+
+    setDraggedDistance(prev => prev + 1);
 
     const { x, y } = getPointFromMouse(e.clientX, e.clientY);
     const newQuadrant = getQuadrant(x, y);
@@ -140,7 +144,9 @@ const QuadrantChart = ({
     setDragging(null);
   };
 
-  const handleOpenEditDialog = (e: React.MouseEvent, point: DataPoint) => {
+  const handleClick = (e: React.MouseEvent, point: DataPoint) => {
+    if (draggedDistance > 5) return;
+    
     e.stopPropagation();
     setEditingPoint(point);
     setEditValue(point.name);
@@ -358,7 +364,7 @@ const QuadrantChart = ({
                 onMouseDown={(e) => handleMouseDown(e, point.id)}
                 onMouseEnter={() => setHovered(point.id)}
                 onMouseLeave={() => setHovered(null)}
-                onClick={(e) => handleOpenEditDialog(e, point)}
+                onClick={(e) => handleClick(e, point)}
               >
                 <span className="text-xs font-bold text-white drop-shadow-sm pointer-events-none">
                   {point.name.substring(0, 2).toUpperCase()}

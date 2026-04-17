@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -14,11 +15,12 @@ import {
   TrendingUp,
   Brain,
   Plus,
+  Sparkles,
   Loader2,
   Send,
   Check,
   X,
-  Zap,
+  MessageCircle,
 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -64,15 +66,6 @@ const QUADRANT_COLORS = {
   "bottom-right": "bg-violet-400",
 };
 
-const getQuadrantFromCoords = (x: number, y: number): DataPoint["quadrant"] => {
-  const isTop = y >= 5;
-  const isRight = x >= 5;
-  if (isTop && !isRight) return "top-left";
-  if (isTop && isRight) return "top-right";
-  if (!isTop && !isRight) return "bottom-left";
-  return "bottom-right";
-};
-
 const Index = () => {
   const [points, setPoints] = useState<DataPoint[]>([
     { id: "1", name: "Ing. Petróleo", x: 3, y: 8, color: QUADRANT_COLORS["top-left"], quadrant: "top-left" },
@@ -102,15 +95,26 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState("");
   
+  // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "ai",
-      content: "¡Hola! Soy tu asistente de clasificación. Puedo ayudarte a clasificar elementos en el gráfico de 4 cuadrantes. Simplemente dime qué quieres clasificar y te sugeriré dónde ubicarlo.",
+      content: "¡Hola! Soy tu asistente de clasificación. Puedo ayudarte a colocar elementos en el gráfico de 4 cuadrantes. Simplemente pregúntame o dime qué elemento quieres clasificar, y te sugeriré dónde ubicarlo.",
       timestamp: new Date(),
     },
   ]);
   const [chatInput, setChatInput] = useState("");
+
+  const getQuadrant = (x: number, y: number): DataPoint["quadrant"] => {
+    const isTop = y >= 5;
+    const isRight = x >= 5;
+    
+    if (isTop && !isRight) return "top-left";
+    if (isTop && isRight) return "top-right";
+    if (!isTop && !isRight) return "bottom-left";
+    return "bottom-right";
+  };
 
   const handleAddPoint = () => {
     if (!newItem.trim()) return;
@@ -118,7 +122,7 @@ const Index = () => {
     const id = generateId();
     const x = 5;
     const y = 5;
-    const quadrant = getQuadrantFromCoords(x, y);
+    const quadrant = getQuadrant(x, y);
     
     const newPoint: DataPoint = {
       id,
@@ -137,7 +141,7 @@ const Index = () => {
   const handleUpdatePoint = (id: string, x: number, y: number) => {
     setPoints(points.map(p => {
       if (p.id === id) {
-        const quadrant = getQuadrantFromCoords(x, y);
+        const quadrant = getQuadrant(x, y);
         return {
           ...p,
           x,
@@ -165,34 +169,6 @@ const Index = () => {
     showSuccess("Nombre actualizado");
   };
 
-  const extractItemsFromText = (text: string): SuggestedItem[] => {
-    const lines = text.split(/[,;.\n]/).map(l => l.trim()).filter(l => l.length > 0 && l.length < 50);
-    const items: SuggestedItem[] = [];
-    
-    const quadrantPositions = [
-      { name: "alto-ingreso-bajo-disfrute", x: 2, y: 7, reason: "Buen salario pero puede ser monótono" },
-      { name: "alto-ingreso-alto-disfrute", x: 8, y: 7, reason: "Excelente combinación" },
-      { name: "bajo-ingreso-bajo-disfrute", x: 2, y: 3, reason: "Poco recomendable" },
-      { name: "bajo-ingreso-alto-disfrute", x: 8, y: 3, reason: "Satisfacción personal" },
-    ];
-    
-    const randomQuadrant = quadrantPositions[Math.floor(Math.random() * quadrantPositions.length)];
-    
-    lines.forEach((line, idx) => {
-      const cleanName = line.replace(/^[0-9+*\-•]+\s*/, '').trim();
-      if (cleanName && cleanName.length > 1) {
-        items.push({
-          name: cleanName,
-          x: Math.max(1, Math.min(9, randomQuadrant.x + (Math.random() > 0.5 ? 1 : -1))),
-          y: Math.max(1, Math.min(9, randomQuadrant.y + (Math.random() > 0.5 ? 1 : -1))),
-          reasoning: randomQuadrant.reason,
-        });
-      }
-    });
-    
-    return items.slice(0, 5);
-  };
-
   const handleSendChat = async () => {
     if (!chatInput.trim()) return;
     if (!apiKey.trim()) {
@@ -212,13 +188,30 @@ const Index = () => {
     setIsLoading(true);
 
     try {
-      const prompt = `Eje X: ${axes.xLabel} (0=${axes.xLeft}, 10=${axes.xRight})
+      const context = `
+Eje X: ${axes.xLabel} (0=${axes.xLeft}, 10=${axes.xRight})
 Eje Y: ${axes.yLabel} (0=${axes.yBottom}, 10=${axes.yTop})
 
-El usuario quiere clasificar: "${userMessage.content}"
+Items existentes en el gráfico: ${points.map(p => `${p.name} (x:${p.x}, y:${p.y})`).join(", ")}
 
-Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
-{"response":"mensaje breve","items":[{"name":"nombre1","x":5,"y":5,"reasoning":"por qué"}]}`;
+Cuadrantes:
+- Arriba-izquierda: ${axes.yTop} pero ${axes.xLeft}
+- Arriba-derecha: ${axes.yTop} y ${axes.xRight}
+- Abajo-izquierda: ${axes.yBottom} y ${axes.xLeft}
+- Abajo-derecha: ${axes.yBottom} pero ${axes.xRight}
+
+El usuario pregunta: "${userMessage.content}"
+
+Responde de manera amigable y útil. Si el usuario quiere clasificar algo, sugiere dónde colocarlo y explica por qué.
+Responde SOLO en formato JSON con este esquema:
+{
+  "response": "tu respuesta en texto plano al usuario",
+  "suggestions": [
+    {"name": "nombre del item", "x": 0-10, "y": 0-10, "reasoning": "breve explicación"}
+  ]
+}
+Si no hay sugerencias de items, envía un array vacío en "suggestions".
+No incluyas ningún otro texto besides el JSON.`;
 
       const response = await fetch("https://api.minimax.chat/v1/text/chatcompletion_pro?GroupId=YOUR_GROUP_ID", {
         method: "POST",
@@ -228,12 +221,19 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
         },
         body: JSON.stringify({
           model: "abab6-chat",
-          messages: [{ role: "user", content: prompt }],
+          messages: [
+            {
+              role: "user",
+              content: context,
+            },
+          ],
           temperature: 0.7,
         }),
       });
 
-      if (!response.ok) throw new Error("API error");
+      if (!response.ok) {
+        throw new Error("MiniMax API error");
+      }
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || "";
@@ -245,34 +245,26 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
         const aiMessage: ChatMessage = {
           id: generateId(),
           role: "ai",
-          content: parsed.response || "Aquí tienes las sugerencias:",
-          suggestedItems: (parsed.items || []).map((item: any) => ({
-            name: item.name,
-            x: Math.round(Math.min(10, Math.max(0, item.x || 5))),
-            y: Math.round(Math.min(10, Math.max(0, item.y || 5))),
-            reasoning: item.reasoning || "Clasificado por IA",
-          })),
+          content: parsed.response || content,
+          suggestedItems: parsed.suggestions || [],
           timestamp: new Date(),
         };
         
         setChatMessages(prev => [...prev, aiMessage]);
       } else {
-        throw new Error("Invalid JSON");
+        throw new Error("Invalid response format");
       }
     } catch (error) {
-      const extractedItems = extractItemsFromText(userMessage.content);
-      
-      const responses = [
-        `Entendí que quieres clasificar: ${extractedItems.map(i => i.name).join(", ")}. Aquí te sugiero dónde colocarlos.`,
-        `Voy a clasificar ${extractedItems.length} elementos para ti. ¿Los agrego al gráfico?`,
-        `Perfecto, aquí tienes las posiciones sugeridas para lo que quieres clasificar.`,
+      // Demo response when API fails
+      const demoSuggestions: SuggestedItem[] = [
+        { name: chatInput.trim(), x: 7, y: 6, reasoning: "Basado en el contexto del gráfico" }
       ];
-      
+
       const aiMessage: ChatMessage = {
         id: generateId(),
         role: "ai",
-        content: responses[Math.floor(Math.random() * responses.length)],
-        suggestedItems: extractedItems,
+        content: `Entiendo que quieres agregar "${chatInput.trim()}" al gráfico. Te sugiero colocarlo en el cuadrante de arriba-derecha (alto ${axes.yLabel}, alta ${axes.xLabel}). ¿Quieres que lo agregue?`,
+        suggestedItems: demoSuggestions,
         timestamp: new Date(),
       };
       
@@ -285,7 +277,7 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
   const handleAddSuggestedItem = (item: SuggestedItem) => {
     const x = Math.round(Math.min(10, Math.max(0, item.x)));
     const y = Math.round(Math.min(10, Math.max(0, item.y)));
-    const quadrant = getQuadrantFromCoords(x, y);
+    const quadrant = getQuadrant(x, y);
     
     const newPoint: DataPoint = {
       id: generateId(),
@@ -299,6 +291,7 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
     setPoints([...points, newPoint]);
     showSuccess(`"${item.name}" agregado al gráfico`);
     
+    // Remove the suggestion from the last AI message
     setChatMessages(prev => prev.map(msg => {
       if (msg.role === "ai" && msg.suggestedItems) {
         return {
@@ -330,6 +323,7 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Clasificador de 4 Cuadrantes
@@ -340,6 +334,7 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
+          {/* Chart Section */}
           <div className="lg:col-span-2">
             <Card className="p-4 md:p-6 shadow-lg rounded-2xl">
               <QuadrantChart
@@ -351,6 +346,7 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
               />
             </Card>
 
+            {/* Legend */}
             <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-rose-100 border border-rose-200 rounded-xl p-3 text-center">
                 <div className="w-3 h-3 bg-rose-400 rounded-full mx-auto mb-1" />
@@ -375,6 +371,7 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
             </div>
           </div>
 
+          {/* Controls Section */}
           <div className="space-y-4">
             <Card className="p-4 shadow-lg rounded-2xl">
               <Tabs defaultValue="add">
@@ -414,98 +411,107 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
                   </Button>
                 </TabsContent>
 
-                <TabsContent value="ai" className="space-y-4 mt-4">
-                  <div>
-                    <Label htmlFor="apiKey" className="text-xs">API Key de MiniMax</Label>
-                    <Input
-                      id="apiKey"
-                      type="password"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="Ingresa tu API key"
-                      className="mt-1"
-                    />
-                  </div>
+                <TabsContent value="ai" className="mt-4">
+                  <div className="space-y-4">
+                    {/* API Key Input */}
+                    <div>
+                      <Label htmlFor="apiKey" className="text-xs">API Key de MiniMax</Label>
+                      <Input
+                        id="apiKey"
+                        type="password"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="Ingresa tu API key"
+                        className="mt-1"
+                      />
+                    </div>
 
-                  <ScrollArea className="h-[250px] pr-4">
-                    <div className="space-y-3">
-                      {chatMessages.map((msg) => (
-                        <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[88%] ${msg.role === "user" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-800"} rounded-2xl px-3 py-2`}>
-                            {msg.role === "ai" && (
-                              <div className="flex items-center gap-1 text-[10px] text-indigo-600 mb-1 font-medium">
-                                <Zap className="w-3 h-3" />
-                                Asistente IA
-                              </div>
-                            )}
-                            <p className="text-sm">{msg.content}</p>
-                            
-                            {msg.suggestedItems && msg.suggestedItems.length > 0 && (
-                              <div className="mt-3 space-y-2 border-t border-white/20 pt-2">
-                                {msg.suggestedItems.map((item, idx) => (
-                                  <div key={idx} className="bg-black/10 rounded-lg p-2">
-                                    <div className="flex items-center justify-between">
-                                      <span className="font-medium text-sm">{item.name}</span>
-                                      <Badge variant="outline" className="text-[10px]">
-                                        ({item.x}, {item.y})
-                                      </Badge>
+                    {/* Chat Messages */}
+                    <ScrollArea className="h-[280px] pr-4">
+                      <div className="space-y-4">
+                        {chatMessages.map((msg) => (
+                          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                            <div className={`max-w-[85%] ${msg.role === "user" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-800"} rounded-2xl px-4 py-3`}>
+                              <div className="flex items-start gap-2">
+                                {msg.role === "ai" && (
+                                  <Brain className="w-4 h-4 mt-0.5 text-indigo-600 flex-shrink-0" />
+                                )}
+                                <div className="flex-1">
+                                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                  
+                                  {/* Suggested Items */}
+                                  {msg.suggestedItems && msg.suggestedItems.length > 0 && (
+                                    <div className="mt-3 space-y-2">
+                                      <p className="text-xs font-medium opacity-75">¿Agregar al gráfico?</p>
+                                      {msg.suggestedItems.map((item, idx) => (
+                                        <div key={idx} className="bg-white/10 rounded-lg p-2">
+                                          <div className="flex items-center justify-between">
+                                            <span className="font-medium text-sm">{item.name}</span>
+                                            <Badge variant="outline" className="text-xs ml-2">
+                                              ({item.x}, {item.y})
+                                            </Badge>
+                                          </div>
+                                          <p className="text-xs opacity-75 mt-1">{item.reasoning}</p>
+                                          <div className="flex gap-2 mt-2">
+                                            <Button 
+                                              size="sm" 
+                                              variant="ghost" 
+                                              className="h-7 text-xs flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-700"
+                                              onClick={() => handleAddSuggestedItem(item)}
+                                            >
+                                              <Check className="w-3 h-3 mr-1" />
+                                              Agregar
+                                            </Button>
+                                            <Button 
+                                              size="sm" 
+                                              variant="ghost" 
+                                              className="h-7 text-xs flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-700"
+                                              onClick={() => handleRejectSuggestion(item.name)}
+                                            >
+                                              <X className="w-3 h-3 mr-1" />
+                                              Ignorar
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ))}
                                     </div>
-                                    <p className="text-[10px] opacity-70 mt-1">{item.reasoning}</p>
-                                    <div className="flex gap-1 mt-2">
-                                      <Button 
-                                        size="sm" 
-                                        className="h-6 text-[10px] flex-1 bg-green-500 hover:bg-green-600 text-white"
-                                        onClick={() => handleAddSuggestedItem(item)}
-                                      >
-                                        <Check className="w-3 h-3 mr-1" />
-                                        Agregar
-                                      </Button>
-                                      <Button 
-                                        size="sm" 
-                                        variant="ghost"
-                                        className="h-6 text-[10px] flex-1 text-red-400 hover:text-red-500 hover:bg-red-50"
-                                        onClick={() => handleRejectSuggestion(item.name)}
-                                      >
-                                        <X className="w-3 h-3 mr-1" />
-                                        Ignorar
-                                      </Button>
-                                    </div>
-                                  </div>
-                                ))}
+                                  )}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {isLoading && (
-                        <div className="flex justify-start">
-                          <div className="bg-slate-100 rounded-2xl px-3 py-2">
-                            <div className="flex items-center gap-2 text-slate-500">
-                              <Brain className="w-4 h-4 animate-pulse" />
-                              <span className="text-sm">Analizando...</span>
                             </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
+                        ))}
+                        
+                        {isLoading && (
+                          <div className="flex justify-start">
+                            <div className="bg-slate-100 rounded-2xl px-4 py-3">
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Brain className="w-4 h-4 animate-pulse" />
+                                <span className="text-sm">Pensando...</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
 
-                  <div className="flex gap-2">
-                    <Input
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      placeholder="Escribe elementos para clasificar..."
-                      onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
-                      disabled={isLoading}
-                    />
-                    <Button onClick={handleSendChat} disabled={isLoading || !chatInput.trim()} size="icon">
-                      {isLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Send className="w-4 h-4" />
-                      )}
-                    </Button>
+                    {/* Chat Input */}
+                    <div className="flex gap-2">
+                      <Input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        placeholder="Pregunta o escribe un elemento..."
+                        onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
+                        disabled={isLoading}
+                      />
+                      <Button onClick={handleSendChat} disabled={isLoading || !chatInput.trim()} size="icon">
+                        {isLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </TabsContent>
 
@@ -516,6 +522,7 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
                       <Input
                         value={axes.xLabel}
                         onChange={(e) => setAxes({ ...axes, xLabel: e.target.value })}
+                        placeholder="Nombre del eje X"
                         className="mt-1"
                       />
                     </div>
@@ -524,42 +531,47 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
                       <Input
                         value={axes.yLabel}
                         onChange={(e) => setAxes({ ...axes, yLabel: e.target.value })}
+                        placeholder="Nombre del eje Y"
                         className="mt-1"
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs">X negativo</Label>
+                      <Label className="text-xs">X negativo (-)</Label>
                       <Input
                         value={axes.xLeft}
                         onChange={(e) => setAxes({ ...axes, xLeft: e.target.value })}
+                        placeholder="Izquierda"
                         className="mt-1"
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">X positivo</Label>
+                      <Label className="text-xs">X positivo (+)</Label>
                       <Input
                         value={axes.xRight}
                         onChange={(e) => setAxes({ ...axes, xRight: e.target.value })}
+                        placeholder="Derecha"
                         className="mt-1"
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs">Y negativo</Label>
+                      <Label className="text-xs">Y negativo (-)</Label>
                       <Input
                         value={axes.yBottom}
                         onChange={(e) => setAxes({ ...axes, yBottom: e.target.value })}
+                        placeholder="Abajo"
                         className="mt-1"
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Y positivo</Label>
+                      <Label className="text-xs">Y positivo (+)</Label>
                       <Input
                         value={axes.yTop}
                         onChange={(e) => setAxes({ ...axes, yTop: e.target.value })}
+                        placeholder="Arriba"
                         className="mt-1"
                       />
                     </div>
@@ -568,6 +580,7 @@ Extrae los nombres de elementos a clasificar. Responde SOLO en JSON válido:
               </Tabs>
             </Card>
 
+            {/* Points List */}
             <Card className="p-4 shadow-lg rounded-2xl">
               <h3 className="font-semibold mb-3 flex items-center">
                 <TrendingUp className="w-4 h-4 mr-2 text-indigo-600" />

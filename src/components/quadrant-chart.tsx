@@ -54,6 +54,12 @@ interface PointGroup {
   points: DataPoint[];
 }
 
+interface MeasuredBubble {
+  point: DataPoint;
+  width: number;
+  height: number;
+}
+
 const QuadrantChart = ({
   points,
   axes,
@@ -69,6 +75,7 @@ const QuadrantChart = ({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPoint, setEditingPoint] = useState<DataPoint | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [measuredBubbles, setMeasuredBubbles] = useState<Map<string, { width: number; height: number }>>(new Map());
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -113,14 +120,6 @@ const QuadrantChart = ({
       left: PADDING + x * cellSize,
       top: PADDING + (GRID_SIZE - y) * cellSize,
     };
-  };
-
-  // Calculate offset for side-by-side display
-  const getSideBySideOffset = (index: number, total: number) => {
-    if (total <= 1) return { x: 0, y: 0 };
-    const spacing = 20;
-    const offset = (index - (total - 1) / 2) * spacing;
-    return { x: offset, y: 0 };
   };
 
   const getPointFromMouse = (clientX: number, clientY: number) => {
@@ -227,6 +226,93 @@ const QuadrantChart = ({
       style: "text-right bottom-[15px] right-[15px]"
     },
   ];
+
+  // Calculate stacking offsets based on bubble sizes
+  const calculateStackOffsets = (groupPoints: DataPoint[]): { x: number; y: number }[] => {
+    if (groupPoints.length <= 1) {
+      return groupPoints.map(() => ({ x: 0, y: 0 }));
+    }
+
+    const measured: MeasuredBubble[] = groupPoints.map(point => {
+      const measuredSize = measuredBubbles.get(point.id);
+      return {
+        point,
+        width: measuredSize?.width || 80,
+        height: measuredSize?.height || 36,
+      };
+    });
+
+    // Sort by height (tallest first) for better stacking
+    measured.sort((a, b) => b.height - a.height);
+
+    const offsets: { x: number; y: number }[] = [];
+    let currentX = 0;
+    let currentY = 0;
+    const spacing = 4;
+
+    measured.forEach((bubble, index) => {
+      if (index === 0) {
+        offsets.push({ x: 0, y: 0 });
+      } else {
+        // Check if current bubble would overlap with previous ones
+        let wouldOverlap = true;
+        let attempt = 0;
+        const maxAttempts = 20;
+
+        while (wouldOverlap && attempt < maxAttempts) {
+          wouldOverlap = false;
+          
+          for (let i = 0; i < index; i++) {
+            const prevBubble = measured[i];
+            const prevOffset = offsets[i];
+            
+            const prevLeft = prevOffset.x - prevBubble.width / 2;
+            const prevRight = prevOffset.x + prevBubble.width / 2;
+            const prevTop = prevOffset.y - prevBubble.height / 2;
+            const prevBottom = prevOffset.y + prevBubble.height / 2;
+            
+            const currLeft = currentX - bubble.width / 2;
+            const currRight = currentX + bubble.width / 2;
+            const currTop = currentY - bubble.height / 2;
+            const currBottom = currentY + bubble.height / 2;
+            
+            // Check overlap
+            if (!(currRight < prevLeft || currLeft > prevRight || currBottom < prevTop || currTop > prevBottom)) {
+              wouldOverlap = true;
+              break;
+            }
+          }
+
+          if (wouldOverlap) {
+            // Try different positions: below, to the side, etc.
+            if (attempt % 2 === 0) {
+              // Stack vertically
+              currentY += Math.max(measured.slice(0, index).reduce((max, b) => Math.max(max, b.height), 0) + spacing, bubble.height + spacing);
+              currentX = 0;
+            } else {
+              // Offset horizontally
+              currentX += (bubble.width / 2 + spacing);
+              if (currentX > 60) {
+                currentX = -60;
+              }
+            }
+            attempt++;
+          }
+        }
+
+        offsets.push({ x: currentX, y: currentY });
+      }
+    });
+
+    // Reorder offsets to match original point order
+    const originalOrderOffsets: { x: number; y: number }[] = [];
+    groupPoints.forEach(point => {
+      const measuredIndex = measured.findIndex(m => m.point.id === point.id);
+      originalOrderOffsets.push(offsets[measuredIndex]);
+    });
+
+    return originalOrderOffsets;
+  };
 
   return (
     <div className="w-full" ref={containerRef}>
@@ -360,9 +446,10 @@ const QuadrantChart = ({
           }}
         />
 
-        {/* Data Points - Grouped by position, displayed side by side */}
+        {/* Data Points - Grouped by position with smart stacking */}
         {groupedPoints.map((group) => {
           const pos = getGridPosition(group.x, group.y);
+          const offsets = calculateStackOffsets(group.points);
           
           return (
             <div
@@ -376,7 +463,7 @@ const QuadrantChart = ({
             >
               <div className="relative">
                 {group.points.map((point, idx) => {
-                  const offset = getSideBySideOffset(idx, group.points.length);
+                  const offset = offsets[idx];
                   const primaryColor = QUADRANT_COLORS[point.quadrant];
                   const isPointHovered = hovered === point.id;
                   
@@ -397,8 +484,18 @@ const QuadrantChart = ({
                         onMouseDown={(e) => handleMouseDown(e, point.id)}
                         onClick={(e) => handleClick(e, point)}
                         title={point.name}
+                        ref={(el) => {
+                          if (el) {
+                            const rect = el.getBoundingClientRect();
+                            setMeasuredBubbles(prev => {
+                              const newMap = new Map(prev);
+                              newMap.set(point.id, { width: rect.width, height: rect.height });
+                              return newMap;
+                            });
+                          }
+                        }}
                       >
-                        <span className="text-xs font-semibold text-white drop-shadow-sm whitespace-nowrap max-w-[80px] overflow-hidden text-ellipsis">
+                        <span className="text-xs font-semibold text-white drop-shadow-sm whitespace-nowrap">
                           {point.name}
                         </span>
                       </div>

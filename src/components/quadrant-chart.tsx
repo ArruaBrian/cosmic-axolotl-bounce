@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Check } from "lucide-react";
 
 interface DataPoint {
   id: string;
@@ -26,21 +26,40 @@ interface QuadrantChartProps {
   axes: AxisConfig;
   onUpdatePoint: (id: string, x: number, y: number) => void;
   onDeletePoint: (id: string) => void;
+  onRenamePoint: (id: string, name: string) => void;
 }
 
 const GRID_SIZE = 10;
 const PADDING = 50;
+
+const QUADRANT_COLORS = {
+  "top-left": "bg-rose-500",
+  "top-right": "bg-blue-500",
+  "bottom-left": "bg-green-500",
+  "bottom-right": "bg-violet-500",
+};
 
 const QuadrantChart = ({
   points,
   axes,
   onUpdatePoint,
   onDeletePoint,
+  onRenamePoint,
 }: QuadrantChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
   const [dragging, setDragging] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  useEffect(() => {
+    if (editingId && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingId]);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -58,6 +77,16 @@ const QuadrantChart = ({
 
   const graphSize = dimensions.width - PADDING * 2;
   const cellSize = graphSize / GRID_SIZE;
+
+  const getQuadrant = (x: number, y: number): DataPoint["quadrant"] => {
+    const isTop = y >= 5;
+    const isRight = x >= 5;
+    
+    if (isTop && !isRight) return "top-left";
+    if (isTop && isRight) return "top-right";
+    if (!isTop && !isRight) return "bottom-left";
+    return "bottom-right";
+  };
 
   const getGridPosition = (x: number, y: number) => {
     return {
@@ -86,6 +115,7 @@ const QuadrantChart = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent, id: string) => {
+    if (editingId === id) return;
     e.preventDefault();
     e.stopPropagation();
     setDragging(id);
@@ -95,21 +125,41 @@ const QuadrantChart = ({
     if (!dragging) return;
 
     const { x, y } = getPointFromMouse(e.clientX, e.clientY);
-    onUpdatePoint(dragging, x, y);
+    const newQuadrant = getQuadrant(x, y);
+    const currentPoint = points.find(p => p.id === dragging);
+    
+    if (currentPoint && currentPoint.quadrant !== newQuadrant) {
+      onUpdatePoint(dragging, x, y);
+    } else {
+      onUpdatePoint(dragging, x, y);
+    }
   };
 
   const handleMouseUp = () => {
     setDragging(null);
   };
 
-  const getQuadrant = (x: number, y: number): string => {
-    const isTop = y >= 5;
-    const isRight = x >= 5;
-    
-    if (isTop && !isRight) return "top-left";
-    if (isTop && isRight) return "top-right";
-    if (!isTop && !isRight) return "bottom-left";
-    return "bottom-right";
+  const handleStartEdit = (e: React.MouseEvent, point: DataPoint) => {
+    e.stopPropagation();
+    setEditingId(point.id);
+    setEditValue(point.name);
+  };
+
+  const handleSaveEdit = (id: string) => {
+    if (editValue.trim()) {
+      onRenamePoint(id, editValue.trim());
+    }
+    setEditingId(null);
+    setEditValue("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === "Enter") {
+      handleSaveEdit(id);
+    } else if (e.key === "Escape") {
+      setEditingId(null);
+      setEditValue("");
+    }
   };
 
   const getQuadrantStyles = (quadrant: string) => {
@@ -291,6 +341,8 @@ const QuadrantChart = ({
           const pos = getGridPosition(point.x, point.y);
           const isHovered = hovered === point.id;
           const isDragging = dragging === point.id;
+          const isEditing = editingId === point.id;
+          const dynamicColor = QUADRANT_COLORS[point.quadrant];
           
           return (
             <div
@@ -303,15 +355,42 @@ const QuadrantChart = ({
               }}
             >
               <div
-                className={`${point.color} w-9 h-9 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-transform`}
+                className={`${dynamicColor} w-9 h-9 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-transform`}
                 onMouseDown={(e) => handleMouseDown(e, point.id)}
                 onMouseEnter={() => setHovered(point.id)}
                 onMouseLeave={() => setHovered(null)}
+                onClick={(e) => handleStartEdit(e, point)}
               >
-                <span className="text-xs font-bold text-white drop-shadow-sm">
-                  {point.name.substring(0, 2).toUpperCase()}
-                </span>
+                {isEditing ? (
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => handleSaveEdit(point.id)}
+                    onKeyDown={(e) => handleKeyDown(e, point.id)}
+                    className="w-full h-full bg-transparent text-center text-xs font-bold text-white outline-none"
+                    style={{ width: "28px", fontSize: "10px" }}
+                  />
+                ) : (
+                  <span className="text-xs font-bold text-white drop-shadow-sm">
+                    {point.name.substring(0, 2).toUpperCase()}
+                  </span>
+                )}
               </div>
+              
+              {/* Save button when editing */}
+              {isEditing && (
+                <button
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-emerald-600 z-50"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSaveEdit(point.id);
+                  }}
+                >
+                  <Check className="w-3 h-3" />
+                </button>
+              )}
               
               {/* Tooltip */}
               <div 
@@ -341,7 +420,7 @@ const QuadrantChart = ({
 
       {/* Instructions */}
       <p className="text-center text-[10px] text-slate-400 mt-2">
-        ✨ Arrastra los puntos para posicionarlos
+        ✨ Haz clic en un punto para editar su nombre
       </p>
     </div>
   );

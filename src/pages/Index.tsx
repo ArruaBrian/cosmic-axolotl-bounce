@@ -79,6 +79,15 @@ const QUADRANT_COLORS = {
 
 const MAX_CONTEXT_MESSAGES = 10;
 
+const DEFAULT_AXES: AxisConfig = {
+  xLabel: "Eje X",
+  yLabel: "Eje Y",
+  xLeft: "Bajo",
+  xRight: "Alto",
+  yBottom: "Bajo",
+  yTop: "Alto",
+};
+
 const Index = () => {
   const [points, setPoints] = useState<DataPoint[]>([
     { id: "1", name: "Ing. Petróleo", x: 3, y: 8, color: QUADRANT_COLORS["top-left"], quadrant: "top-left" },
@@ -225,28 +234,32 @@ No incluyas ningún otro texto besides el JSON.`;
     } else {
       return `${baseContext}
 
-MODO PLAN (Cambios grandes con aprobación):
-El usuario quiere proponer cambios significativos al gráfico. Puedes:
-1. Cambiar los nombres de los ejes
-2. Agregar muchos elementos de una vez
-3. Hacer un reset completo del gráfico
-4. Mover/eliminar elementos existentes
+MODO PLAN (Reset completo con aprobación):
+El usuario quiere crear un NUEVO gráfico desde cero con nuevos ejes y nuevos elementos.
+Cuando el usuario activa el modo Plan, DEBES:
+1. Limpiar TODOS los elementos existentes
+2. Definir nuevos ejes para el gráfico
+3. Proponer elementos para el nuevo gráfico
 
-Siempre pregunta antes de hacer cambios. Tu respuesta DEBE incluir una propuesta formal.
+Tu respuesta SIEMPRE debe incluir una propuesta completa.
 
 Responde SOLO en formato JSON con este esquema:
 {
   "response": "tu explicación amigable al usuario sobre lo que propones",
   "proposal": {
-    "type": "full_reset | partial_update | axis_change | bulk_add",
-    "description": "Descripción clara del cambio propuesto",
-    "newPoints": [{"name": "nombre", "x": 0-10, "y": 0-10}],
-    "newAxes": {"xLabel": "...", "yLabel": "...", "xLeft": "...", "xRight": "...", "yBottom": "...", "yTop": "..."},
-    "pointsToRemove": ["nombre1", "nombre2"]
+    "type": "full_reset",
+    "description": "Descripción clara del nuevo gráfico",
+    "newPoints": [{"name": "nombre del elemento", "x": 0-10, "y": 0-10}],
+    "newAxes": {
+      "xLabel": "nombre del eje X",
+      "yLabel": "nombre del eje Y",
+      "xLeft": "valor negativo del eje X",
+      "xRight": "valor positivo del eje X",
+      "yBottom": "valor negativo del eje Y",
+      "yTop": "valor positivo del eje Y"
+    }
   }
 }
-Si NO hay propuesta de cambio (el usuario solo pregunta o conversa), pon "proposal": null.
-Solo incluye "proposal" si el usuario pide explícitamente crear, cambiar o resetear algo.
 No incluyas ningún otro texto besides el JSON.`;
     }
   };
@@ -394,25 +407,18 @@ No incluyas ningún otro texto besides el JSON.`;
   };
 
   const handleApproveProposal = (proposal: PlanProposal) => {
-    if (proposal.type === "full_reset") {
-      // Reset everything
-      setPoints([]);
-      setAxes({
-        xLabel: "Eje X",
-        yLabel: "Eje Y",
-        xLeft: "Bajo",
-        xRight: "Alto",
-        yBottom: "Bajo",
-        yTop: "Alto",
-      });
-      showSuccess("Gráfico reseteado");
-    }
-
+    // ALWAYS clear everything first in Plan mode
+    setPoints([]);
+    
+    // ALWAYS update axes in Plan mode
     if (proposal.newAxes) {
       setAxes(proposal.newAxes);
-      showSuccess("Ejes actualizados");
+    } else {
+      setAxes(DEFAULT_AXES);
     }
+    showSuccess("Gráfico actualizado con la propuesta");
 
+    // Add new points
     if (proposal.newPoints && proposal.newPoints.length > 0) {
       const newDataPoints: DataPoint[] = proposal.newPoints.map(p => {
         const x = Math.round(Math.min(10, Math.max(0, p.x)));
@@ -426,13 +432,8 @@ No incluyas ningún otro texto besides el JSON.`;
           quadrant: getQuadrant(x, y),
         };
       });
-      setPoints(prev => [...prev, ...newDataPoints]);
+      setPoints(newDataPoints);
       showSuccess(`${newDataPoints.length} elementos agregados`);
-    }
-
-    if (proposal.pointsToRemove && proposal.pointsToRemove.length > 0) {
-      setPoints(prev => prev.filter(p => !proposal.pointsToRemove!.includes(p.name)));
-      showSuccess(`${proposal.pointsToRemove.length} elementos eliminados`);
     }
 
     // Remove the proposal from the message
@@ -590,7 +591,7 @@ No incluyas ningún otro texto besides el JSON.`;
                     <p className="text-[10px] text-muted-foreground text-center">
                       {aiMode === "normal" 
                         ? "Agrega elementos de uno en uno" 
-                        : "La IA propone cambios y pide aprobación"}
+                        : "La IA propone un gráfico nuevo completo"}
                     </p>
 
                     {/* Chat Messages */}
@@ -648,44 +649,31 @@ No incluyas ningún otro texto besides el JSON.`;
                                   {msg.planProposal && (
                                     <div className="mt-3 space-y-2">
                                       <div className="bg-indigo-100 border border-indigo-200 rounded-lg p-3">
-                                        <p className="text-xs font-semibold text-indigo-700 mb-2">📋 Propuesta de cambio</p>
+                                        <p className="text-xs font-semibold text-indigo-700 mb-2">📋 Nueva propuesta de gráfico</p>
                                         <p className="text-xs text-indigo-600 mb-2">{msg.planProposal.description}</p>
                                         
                                         {msg.planProposal.newAxes && (
                                           <div className="bg-white/50 rounded p-2 mb-2">
                                             <p className="text-[10px] font-medium">Nuevos ejes:</p>
-                                            <p className="text-[10px]">X: {msg.planProposal.newAxes.xLabel}</p>
-                                            <p className="text-[10px]">Y: {msg.planProposal.newAxes.yLabel}</p>
+                                            <p className="text-[10px]"><strong>X:</strong> {msg.planProposal.newAxes.xLabel} ({msg.planProposal.newAxes.xLeft} ←→ {msg.planProposal.newAxes.xRight})</p>
+                                            <p className="text-[10px]"><strong>Y:</strong> {msg.planProposal.newAxes.yLabel} ({msg.planProposal.newAxes.yBottom} ←→ {msg.planProposal.newAxes.yTop})</p>
                                           </div>
                                         )}
                                         
                                         {msg.planProposal.newPoints && msg.planProposal.newPoints.length > 0 && (
                                           <div className="bg-white/50 rounded p-2 mb-2">
-                                            <p className="text-[10px] font-medium">Elementos a agregar ({msg.planProposal.newPoints.length}):</p>
+                                            <p className="text-[10px] font-medium">Elementos nuevos ({msg.planProposal.newPoints.length}):</p>
                                             <div className="flex flex-wrap gap-1 mt-1">
-                                              {msg.planProposal.newPoints.slice(0, 5).map((p, idx) => (
+                                              {msg.planProposal.newPoints.slice(0, 8).map((p, idx) => (
                                                 <Badge key={idx} variant="outline" className="text-[10px]">
                                                   {p.name} ({p.x},{p.y})
                                                 </Badge>
                                               ))}
-                                              {msg.planProposal.newPoints.length > 5 && (
+                                              {msg.planProposal.newPoints.length > 8 && (
                                                 <Badge variant="outline" className="text-[10px]">
-                                                  +{msg.planProposal.newPoints.length - 5} más
+                                                  +{msg.planProposal.newPoints.length - 8} más
                                                 </Badge>
                                               )}
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {msg.planProposal.pointsToRemove && msg.planProposal.pointsToRemove.length > 0 && (
-                                          <div className="bg-red-50 rounded p-2 mb-2">
-                                            <p className="text-[10px] font-medium text-red-600">Elementos a eliminar:</p>
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                              {msg.planProposal.pointsToRemove.map((name, idx) => (
-                                                <Badge key={idx} variant="destructive" className="text-[10px]">
-                                                  {name}
-                                                </Badge>
-                                              ))}
                                             </div>
                                           </div>
                                         )}
@@ -736,7 +724,7 @@ No incluyas ningún otro texto besides el JSON.`;
                       <Input
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
-                        placeholder={aiMode === "normal" ? "Escribe un elemento..." : "Describe tu proyecto..."}
+                        placeholder={aiMode === "normal" ? "Escribe un elemento..." : "Describe tu nuevo gráfico..."}
                         onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
                         disabled={isLoading}
                       />

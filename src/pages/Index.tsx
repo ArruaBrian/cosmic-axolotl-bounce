@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
 import {
   ScatterChart,
   TrendingUp,
@@ -40,20 +39,27 @@ interface AxisConfig {
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+const QUADRANT_COLORS = {
+  "top-left": "bg-rose-400",
+  "top-right": "bg-blue-400",
+  "bottom-left": "bg-green-400",
+  "bottom-right": "bg-violet-400",
+};
+
 const Index = () => {
   const [points, setPoints] = useState<DataPoint[]>([
-    { id: "1", name: "Ing. Petróleo", x: 3, y: 8, color: "bg-rose-400", quadrant: "top-left" },
-    { id: "2", name: "Ing. Mecánica", x: 2, y: 7, color: "bg-rose-400", quadrant: "top-left" },
-    { id: "3", name: "Actuario", x: 4, y: 7, color: "bg-rose-400", quadrant: "top-left" },
-    { id: "4", name: "Medicina", x: 3, y: 9, color: "bg-rose-400", quadrant: "top-left" },
-    { id: "5", name: "Piloto", x: 8, y: 8, color: "bg-blue-400", quadrant: "top-right" },
-    { id: "6", name: "Marketing", x: 7, y: 7, color: "bg-blue-400", quadrant: "top-right" },
-    { id: "7", name: "Diseño", x: 8, y: 6, color: "bg-blue-400", quadrant: "top-right" },
-    { id: "8", name: "Administración", x: 2, y: 3, color: "bg-green-400", quadrant: "bottom-left" },
-    { id: "9", name: "Derecho", x: 3, y: 2, color: "bg-green-400", quadrant: "bottom-left" },
-    { id: "10", name: "Letras", x: 8, y: 3, color: "bg-violet-400", quadrant: "bottom-right" },
-    { id: "11", name: "Filosofía", x: 7, y: 2, color: "bg-violet-400", quadrant: "bottom-right" },
-    { id: "12", name: "Artes Circenses", x: 9, y: 4, color: "bg-violet-400", quadrant: "bottom-right" },
+    { id: "1", name: "Ing. Petróleo", x: 3, y: 8, color: QUADRANT_COLORS["top-left"], quadrant: "top-left" },
+    { id: "2", name: "Ing. Mecánica", x: 2, y: 7, color: QUADRANT_COLORS["top-left"], quadrant: "top-left" },
+    { id: "3", name: "Actuario", x: 4, y: 7, color: QUADRANT_COLORS["top-left"], quadrant: "top-left" },
+    { id: "4", name: "Medicina", x: 3, y: 9, color: QUADRANT_COLORS["top-left"], quadrant: "top-left" },
+    { id: "5", name: "Piloto", x: 8, y: 8, color: QUADRANT_COLORS["top-right"], quadrant: "top-right" },
+    { id: "6", name: "Marketing", x: 7, y: 7, color: QUADRANT_COLORS["top-right"], quadrant: "top-right" },
+    { id: "7", name: "Diseño", x: 8, y: 6, color: QUADRANT_COLORS["top-right"], quadrant: "top-right" },
+    { id: "8", name: "Administración", x: 2, y: 3, color: QUADRANT_COLORS["bottom-left"], quadrant: "bottom-left" },
+    { id: "9", name: "Derecho", x: 3, y: 2, color: QUADRANT_COLORS["bottom-left"], quadrant: "bottom-left" },
+    { id: "10", name: "Letras", x: 8, y: 3, color: QUADRANT_COLORS["bottom-right"], quadrant: "bottom-right" },
+    { id: "11", name: "Filosofía", x: 7, y: 2, color: QUADRANT_COLORS["bottom-right"], quadrant: "bottom-right" },
+    { id: "12", name: "Artes Circenses", x: 9, y: 4, color: QUADRANT_COLORS["bottom-right"], quadrant: "bottom-right" },
   ]);
 
   const [axes, setAxes] = useState<AxisConfig>({
@@ -71,9 +77,12 @@ const Index = () => {
   const [apiKey, setApiKey] = useState("");
 
   const getQuadrant = (x: number, y: number): DataPoint["quadrant"] => {
-    if (x < 5 && y >= 5) return "top-left";
-    if (x >= 5 && y >= 5) return "top-right";
-    if (x < 5 && y < 5) return "bottom-left";
+    const isTop = y >= 5;
+    const isRight = x >= 5;
+    
+    if (isTop && !isRight) return "top-left";
+    if (isTop && isRight) return "top-right";
+    if (!isTop && !isRight) return "bottom-left";
     return "bottom-right";
   };
 
@@ -83,14 +92,15 @@ const Index = () => {
     const id = generateId();
     const x = 5;
     const y = 5;
+    const quadrant = getQuadrant(x, y);
     
     const newPoint: DataPoint = {
       id,
       name: newItem.trim(),
       x,
       y,
-      color: "bg-amber-400",
-      quadrant: getQuadrant(x, y),
+      color: QUADRANT_COLORS[quadrant],
+      quadrant,
     };
     
     setPoints([...points, newPoint]);
@@ -101,11 +111,13 @@ const Index = () => {
   const handleUpdatePoint = (id: string, x: number, y: number) => {
     setPoints(points.map(p => {
       if (p.id === id) {
+        const quadrant = getQuadrant(x, y);
         return {
           ...p,
           x,
           y,
-          quadrant: getQuadrant(x, y),
+          color: QUADRANT_COLORS[quadrant],
+          quadrant,
         };
       }
       return p;
@@ -115,6 +127,16 @@ const Index = () => {
   const handleDeletePoint = (id: string) => {
     setPoints(points.filter(p => p.id !== id));
     showSuccess("Punto eliminado");
+  };
+
+  const handleRenamePoint = (id: string, name: string) => {
+    setPoints(points.map(p => {
+      if (p.id === id) {
+        return { ...p, name };
+      }
+      return p;
+    }));
+    showSuccess("Nombre actualizado");
   };
 
   const handleAskAI = async () => {
@@ -170,7 +192,6 @@ No incluyas ningún otro texto besides el JSON.`;
         }),
       });
 
-      // Si la API de MiniMax no responde, intentamos con OpenAI-compatible endpoint
       if (!response.ok) {
         throw new Error("MiniMax API error");
       }
@@ -178,39 +199,42 @@ No incluyas ningún otro texto besides el JSON.`;
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || "";
 
-      // Parsear JSON de la respuesta
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        const newPoints: DataPoint[] = parsed.items.map((item: any) => ({
-          id: generateId(),
-          name: item.name,
-          x: Math.round(Math.min(10, Math.max(0, item.x))),
-          y: Math.round(Math.min(10, Math.max(0, item.y))),
-          color: "bg-amber-400",
-          quadrant: getQuadrant(
-            Math.round(Math.min(10, Math.max(0, item.x))),
-            Math.round(Math.min(10, Math.max(0, item.y)))
-          ),
-        }));
+        const newPoints: DataPoint[] = parsed.items.map((item: any) => {
+          const x = Math.round(Math.min(10, Math.max(0, item.x)));
+          const y = Math.round(Math.min(10, Math.max(0, item.y)));
+          const quadrant = getQuadrant(x, y);
+          return {
+            id: generateId(),
+            name: item.name,
+            x,
+            y,
+            color: QUADRANT_COLORS[quadrant],
+            quadrant,
+          };
+        });
 
         setPoints([...points, ...newPoints]);
         showSuccess(`${newPoints.length} item(s) agregado(s) por IA`);
       }
     } catch (error) {
-      // Fallback: demo con respuesta simulada
       const demoResponses = [
-        { name: aiPrompt.trim(), x: 7, y: 6, reasoning: "Buen balance" },
+        { name: aiPrompt.trim(), x: 7, y: 6 },
       ];
       
-      const newPoints: DataPoint[] = demoResponses.map((item) => ({
-        id: generateId(),
-        name: item.name,
-        x: item.x,
-        y: item.y,
-        color: "bg-amber-400",
-        quadrant: getQuadrant(item.x, item.y),
-      }));
+      const newPoints: DataPoint[] = demoResponses.map((item) => {
+        const quadrant = getQuadrant(item.x, item.y);
+        return {
+          id: generateId(),
+          name: item.name,
+          x: item.x,
+          y: item.y,
+          color: QUADRANT_COLORS[quadrant],
+          quadrant,
+        };
+      });
 
       setPoints([...points, ...newPoints]);
       showSuccess(`"${aiPrompt.trim()}" agregado (demo)`);
@@ -247,6 +271,7 @@ No incluyas ningún otro texto besides el JSON.`;
                 axes={axes}
                 onUpdatePoint={handleUpdatePoint}
                 onDeletePoint={handleDeletePoint}
+                onRenamePoint={handleRenamePoint}
               />
             </Card>
 

@@ -157,7 +157,7 @@ const QuadrantChart = ({
   return (
     <div className="w-full" ref={containerRef}>
       <div
-        className="relative w-full bg-white rounded-xl border-2 border-slate-200 overflow-visible select-none"
+        className="relative w-full bg-white rounded-xl border-2 border-slate-200 overflow-hidden select-none"
         style={{ height: dimensions.width }}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -242,6 +242,39 @@ const QuadrantChart = ({
           {axes.xLeft}
         </div>
 
+        {/* X-axis numbers (OUTSIDE - bottom) */}
+        <div 
+          className="absolute flex justify-between pointer-events-none z-30"
+          style={{ 
+            left: PADDING, 
+            right: PADDING - 20, 
+            bottom: "6px",
+          }}
+        >
+          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
+            <span key={i} className="text-[9px] text-slate-400 font-medium text-center" style={{ width: cellSize }}>
+              {i}
+            </span>
+          ))}
+        </div>
+
+        {/* Y-axis numbers (OUTSIDE - left side) */}
+        <div 
+          className="absolute flex flex-col justify-between pointer-events-none z-30"
+          style={{ 
+            left: "4px", 
+            top: PADDING, 
+            bottom: PADDING,
+            height: graphSize,
+          }}
+        >
+          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
+            <span key={i} className="text-[9px] text-slate-400 font-medium text-right" style={{ height: cellSize, lineHeight: `${cellSize}px` }}>
+              {GRID_SIZE - i}
+            </span>
+          ))}
+        </div>
+
         {/* Border frame */}
         <div 
           className="absolute border-2 border-slate-400 pointer-events-none z-10"
@@ -304,38 +337,6 @@ const QuadrantChart = ({
             </div>
           );
         })}
-
-        {/* X-axis numbers (OUTSIDE - below the grid) */}
-        <div 
-          className="absolute flex justify-between pointer-events-none z-40"
-          style={{ 
-            left: PADDING, 
-            width: graphSize,
-            top: PADDING + graphSize + 4,
-          }}
-        >
-          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
-            <span key={i} className="text-[9px] text-slate-400 font-medium text-center" style={{ width: cellSize }}>
-              {i}
-            </span>
-          ))}
-        </div>
-
-        {/* Y-axis numbers (OUTSIDE - left of the grid) */}
-        <div 
-          className="absolute flex flex-col justify-between pointer-events-none z-40"
-          style={{ 
-            left: 8, 
-            top: PADDING, 
-            height: graphSize,
-          }}
-        >
-          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
-            <span key={i} className="text-[9px] text-slate-400 font-medium" style={{ height: cellSize, lineHeight: `${cellSize}px` }}>
-              {GRID_SIZE - i}
-            </span>
-          ))}
-        </div>
       </div>
 
       {/* Instructions */}

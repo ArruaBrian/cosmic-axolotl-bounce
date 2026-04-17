@@ -154,6 +154,9 @@ const QuadrantChart = ({
     },
   ];
 
+  // Generate Y-axis numbers (0 to 10)
+  const yAxisNumbers = Array.from({ length: GRID_SIZE + 1 }, (_, i) => i).reverse();
+
   return (
     <div className="w-full" ref={containerRef}>
       <div
@@ -242,26 +245,37 @@ const QuadrantChart = ({
           {axes.xLeft}
         </div>
 
-        {/* X-axis numbers (bottom) */}
+        {/* Y-axis numbers (left side - OUTSIDE the grid) */}
         <div 
-          className="absolute flex justify-between pointer-events-none z-30"
+          className="absolute pointer-events-none z-30 flex flex-col justify-between"
           style={{ 
-            left: PADDING, 
-            right: PADDING, 
-            bottom: "2px",
+            left: "0px",
+            top: `${PADDING}px`,
+            height: `${graphSize}px`,
+            width: `${PADDING - 5}px`,
           }}
         >
-          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
-            <span key={i} className="text-[9px] text-slate-400 font-medium w-0 text-center">
-              {i}
+          {yAxisNumbers.map((num, i) => (
+            <span 
+              key={num} 
+              className="text-[9px] text-slate-400 font-medium text-right pr-1"
+            >
+              {num}
             </span>
           ))}
         </div>
 
-        {/* Y-axis numbers (left side) */}
-        <div className="absolute top-0 bottom-0 left-0 flex flex-col justify-between pointer-events-none z-30" style={{ paddingTop: PADDING, paddingBottom: PADDING }}>
-          {Array.from({ length: GRID_SIZE + 1 }).reverse().map((_, i) => (
-            <span key={i} className="text-[9px] text-slate-400 font-medium absolute left-[2px]" style={{ top: i * cellSize }}>
+        {/* X-axis numbers (bottom - OUTSIDE the grid) */}
+        <div 
+          className="absolute pointer-events-none z-30 flex justify-between"
+          style={{ 
+            left: `${PADDING}px`,
+            right: `${PADDING}px`,
+            bottom: "3px",
+          }}
+        >
+          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
+            <span key={i} className="text-[9px] text-slate-400 font-medium text-center w-0">
               {i}
             </span>
           ))}

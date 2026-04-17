@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -15,12 +14,10 @@ import {
   TrendingUp,
   Brain,
   Plus,
-  Sparkles,
   Loader2,
   Send,
   Check,
   X,
-  MessageCircle,
 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -188,19 +185,18 @@ const Index = () => {
     setIsLoading(true);
 
     try {
-      const context = `
+      const systemPrompt = `Eres un asistente que ayuda a clasificar elementos en un gráfico de 4 cuadrantes.
+
 Eje X: ${axes.xLabel} (0=${axes.xLeft}, 10=${axes.xRight})
 Eje Y: ${axes.yLabel} (0=${axes.yBottom}, 10=${axes.yTop})
 
-Items existentes en el gráfico: ${points.map(p => `${p.name} (x:${p.x}, y:${p.y})`).join(", ")}
+Items existentes en el gráfico: ${points.map(p => `${p.name} (x:${p.x}, y:${p.y})`).join(", ") || "Ninguno"}
 
 Cuadrantes:
 - Arriba-izquierda: ${axes.yTop} pero ${axes.xLeft}
 - Arriba-derecha: ${axes.yTop} y ${axes.xRight}
 - Abajo-izquierda: ${axes.yBottom} y ${axes.xLeft}
 - Abajo-derecha: ${axes.yBottom} pero ${axes.xRight}
-
-El usuario pregunta: "${userMessage.content}"
 
 Responde de manera amigable y útil. Si el usuario quiere clasificar algo, sugiere dónde colocarlo y explica por qué.
 Responde SOLO en formato JSON con este esquema:
@@ -213,26 +209,32 @@ Responde SOLO en formato JSON con este esquema:
 Si no hay sugerencias de items, envía un array vacío en "suggestions".
 No incluyas ningún otro texto besides el JSON.`;
 
-      const response = await fetch("https://api.minimax.chat/v1/text/chatcompletion_pro?GroupId=YOUR_GROUP_ID", {
+      const response = await fetch("https://api.minimax.io/v1/text/chatcompletion_v2", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "abab6-chat",
+          model: "M2.7",
           messages: [
             {
+              role: "system",
+              name: "MiniMax AI",
+              content: systemPrompt,
+            },
+            {
               role: "user",
-              content: context,
+              name: "User",
+              content: userMessage.content,
             },
           ],
-          temperature: 0.7,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("MiniMax API error");
+        const errorData = await response.text();
+        throw new Error(`MiniMax API error: ${response.status} - ${errorData}`);
       }
 
       const data = await response.json();
@@ -255,16 +257,13 @@ No incluyas ningún otro texto besides el JSON.`;
         throw new Error("Invalid response format");
       }
     } catch (error) {
-      // Demo response when API fails
-      const demoSuggestions: SuggestedItem[] = [
-        { name: chatInput.trim(), x: 7, y: 6, reasoning: "Basado en el contexto del gráfico" }
-      ];
-
+      console.error("API Error:", error);
+      
       const aiMessage: ChatMessage = {
         id: generateId(),
         role: "ai",
-        content: `Entiendo que quieres agregar "${chatInput.trim()}" al gráfico. Te sugiero colocarlo en el cuadrante de arriba-derecha (alto ${axes.yLabel}, alta ${axes.xLabel}). ¿Quieres que lo agregue?`,
-        suggestedItems: demoSuggestions,
+        content: `Lo siento, hubo un error al conectar con la API de MiniMax: ${error instanceof Error ? error.message : "Error desconocido"}. Por favor verifica tu API key e intenta de nuevo.`,
+        suggestedItems: [],
         timestamp: new Date(),
       };
       
@@ -291,7 +290,6 @@ No incluyas ningún otro texto besides el JSON.`;
     setPoints([...points, newPoint]);
     showSuccess(`"${item.name}" agregado al gráfico`);
     
-    // Remove the suggestion from the last AI message
     setChatMessages(prev => prev.map(msg => {
       if (msg.role === "ai" && msg.suggestedItems) {
         return {

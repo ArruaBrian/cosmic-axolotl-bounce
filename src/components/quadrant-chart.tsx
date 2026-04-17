@@ -29,7 +29,8 @@ interface QuadrantChartProps {
 }
 
 const GRID_SIZE = 10;
-const PADDING = 50;
+const PADDING = 40;
+const NUMBER_OFFSET = 12;
 
 const QuadrantChart = ({
   points,
@@ -206,6 +207,46 @@ const QuadrantChart = ({
               style={{ top: PADDING + i * cellSize }}
             />
           ))}
+        </div>
+
+        {/* X-axis numbers (inside bottom of grid) */}
+        <div 
+          className="absolute pointer-events-none z-20"
+          style={{ 
+            left: PADDING, 
+            right: PADDING, 
+            top: PADDING + graphSize + 4,
+          }}
+        >
+          <div className="flex justify-between">
+            {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
+              <span 
+                key={i} 
+                className="text-[9px] text-slate-400 font-medium -translate-x-1/2"
+                style={{ 
+                  position: i === 0 ? 'relative' : 'relative',
+                  left: i === 0 ? 0 : 'auto'
+                }}
+              >
+                {i}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Y-axis numbers (inside left of grid) */}
+        <div className="absolute pointer-events-none z-20" style={{ 
+          left: PADDING - NUMBER_OFFSET, 
+          top: PADDING,
+          height: graphSize,
+        }}>
+          <div className="flex flex-col justify-between h-full">
+            {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
+              <span key={i} className="text-[9px] text-slate-400 font-medium -translate-y-1/2">
+                {GRID_SIZE - i}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Quadrant Labels - positioned in corners of each quadrant */}

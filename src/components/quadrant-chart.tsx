@@ -48,6 +48,12 @@ const QUADRANT_COLORS = {
   "bottom-right": "bg-violet-500",
 };
 
+interface PointGroup {
+  x: number;
+  y: number;
+  points: DataPoint[];
+}
+
 const QuadrantChart = ({
   points,
   axes,
@@ -60,6 +66,7 @@ const QuadrantChart = ({
   const [dragging, setDragging] = useState<string | null>(null);
   const [draggedDistance, setDraggedDistance] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPoint, setEditingPoint] = useState<DataPoint | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -81,6 +88,17 @@ const QuadrantChart = ({
   const graphSize = dimensions.width - PADDING * 2;
   const cellSize = graphSize / GRID_SIZE;
 
+  // Group points by position
+  const groupedPoints = points.reduce<PointGroup[]>((groups, point) => {
+    const existing = groups.find(g => g.x === point.x && g.y === point.y);
+    if (existing) {
+      existing.points.push(point);
+    } else {
+      groups.push({ x: point.x, y: point.y, points: [point] });
+    }
+    return groups;
+  }, []);
+
   const getQuadrant = (x: number, y: number): DataPoint["quadrant"] => {
     const isTop = y >= 5;
     const isRight = x >= 5;
@@ -95,6 +113,18 @@ const QuadrantChart = ({
     return {
       left: PADDING + x * cellSize,
       top: PADDING + (GRID_SIZE - y) * cellSize,
+    };
+  };
+
+  // Calculate offset for stacked points
+  const getStackOffset = (index: number, total: number) => {
+    if (total <= 1) return { x: 0, y: 0 };
+    const radius = 14;
+    const angleStep = (2 * Math.PI) / total;
+    const angle = index * angleStep - Math.PI / 2;
+    return {
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius,
     };
   };
 
@@ -144,13 +174,18 @@ const QuadrantChart = ({
     setDragging(null);
   };
 
-  const handleClick = (e: React.MouseEvent, point: DataPoint) => {
+  const handleClick = (e: React.MouseEvent, point: DataPoint, groupSize: number, groupId: string) => {
     if (draggedDistance > 5) return;
     
     e.stopPropagation();
-    setEditingPoint(point);
-    setEditValue(point.name);
-    setEditDialogOpen(true);
+    
+    if (groupSize > 1 && groupId !== expandedGroup) {
+      setExpandedGroup(groupId);
+    } else {
+      setEditingPoint(point);
+      setEditValue(point.name);
+      setEditDialogOpen(true);
+    }
   };
 
   const handleSaveEdit = () => {
@@ -342,56 +377,157 @@ const QuadrantChart = ({
           }}
         />
 
-        {/* Data Points - snap to grid intersections */}
-        {points.map((point) => {
-          const pos = getGridPosition(point.x, point.y);
-          const isHovered = hovered === point.id;
-          const isDragging = dragging === point.id;
-          const dynamicColor = QUADRANT_COLORS[point.quadrant];
+        {/* Data Points - Grouped by position */}
+        {groupedPoints.map((group) => {
+          const pos = getGridPosition(group.x, group.y);
+          const groupId = `${group.x}-${group.y}`;
+          const isExpanded = expandedGroup === groupId;
+          const isGroupHovered = group.points.some(p => hovered === p.id);
+          const primaryColor = QUADRANT_COLORS[group.points[0].quadrant];
           
           return (
             <div
-              key={point.id}
-              className={`absolute transition-all duration-75 ${isDragging ? "z-50" : isHovered ? "z-40" : "z-10"}`}
+              key={groupId}
+              className="absolute z-10"
               style={{
                 left: `${pos.left}px`,
                 top: `${pos.top}px`,
-                transform: `translate(-50%, -50%) ${isDragging ? "scale(1.15)" : isHovered ? "scale(1.08)" : "scale(1)"}`,
+                transform: "translate(-50%, -50%)",
               }}
             >
-              <div
-                className={`${dynamicColor} w-9 h-9 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-transform`}
-                onMouseDown={(e) => handleMouseDown(e, point.id)}
-                onMouseEnter={() => setHovered(point.id)}
-                onMouseLeave={() => setHovered(null)}
-                onClick={(e) => handleClick(e, point)}
-              >
-                <span className="text-xs font-bold text-white drop-shadow-sm pointer-events-none">
-                  {point.name.substring(0, 2).toUpperCase()}
-                </span>
-              </div>
-              
-              {/* Tooltip */}
-              <div 
-                className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 transition-opacity duration-150 pointer-events-none ${isHovered || isDragging ? "opacity-100" : "opacity-0"}`}
-              >
-                <div className="bg-slate-800 text-white text-xs px-2 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
-                  <p className="font-semibold">{point.name}</p>
-                  <p className="text-slate-300 text-[10px]">x: {point.x}, y: {point.y}</p>
-                </div>
-                <div className="w-2 h-2 bg-slate-800 rotate-45 mx-auto -mt-1" />
-              </div>
+              {/* Single point or stacked display */}
+              {group.points.length === 1 ? (
+                // Single point
+                <div
+                  className="relative"
+                  onMouseEnter={() => setHovered(group.points[0].id)}
+                  onMouseLeave={() => setHovered(null)}
+                >
+                  <div
+                    className={`${primaryColor} w-9 h-9 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-transform hover:scale-110`}
+                    onMouseDown={(e) => handleMouseDown(e, group.points[0].id)}
+                    onClick={(e) => handleClick(e, group.points[0], 1, groupId)}
+                  >
+                    <span className="text-xs font-bold text-white drop-shadow-sm pointer-events-none">
+                      {group.points[0].name.substring(0, 2).toUpperCase()}
+                    </span>
+                  </div>
+                  
+                  {/* Tooltip */}
+                  <div 
+                    className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 transition-opacity duration-150 pointer-events-none ${isGroupHovered ? "opacity-100" : "opacity-0"}`}
+                  >
+                    <div className="bg-slate-800 text-white text-xs px-2 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
+                      <p className="font-semibold">{group.points[0].name}</p>
+                      <p className="text-slate-300 text-[10px]">x: {group.x}, y: {group.y}</p>
+                    </div>
+                    <div className="w-2 h-2 bg-slate-800 rotate-45 mx-auto -mt-1" />
+                  </div>
 
-              {/* Delete button */}
-              <button
-                className={`absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity duration-150 hover:bg-red-600 ${isHovered || isDragging ? "opacity-100" : "opacity-0"}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeletePoint(point.id);
-                }}
-              >
-                <X className="w-3 h-3" />
-              </button>
+                  {/* Delete button */}
+                  <button
+                    className={`absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity duration-150 hover:bg-red-600 ${isGroupHovered ? "opacity-100" : "opacity-0"}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeletePoint(group.points[0].id);
+                    }}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                // Multiple points stacked
+                <div className="relative">
+                  {/* Main bubble with count */}
+                  <div
+                    className={`${primaryColor} w-10 h-10 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-pointer transition-all ${isExpanded ? "scale-110 ring-2 ring-yellow-400" : "hover:scale-105"}`}
+                    onClick={() => setExpandedGroup(isExpanded ? null : groupId)}
+                  >
+                    <span className="text-sm font-bold text-white drop-shadow-sm">
+                      {group.points.length}
+                    </span>
+                    {isExpanded && (
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
+                    )}
+                  </div>
+
+                  {/* Expanded stack view */}
+                  {isExpanded && (
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50">
+                      <div className="bg-slate-800 rounded-xl shadow-xl p-3 min-w-[180px] max-w-[220px]">
+                        <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-600">
+                          <span className="text-xs font-medium text-slate-300">
+                            {group.points.length} elementos
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            ({group.x}, {group.y})
+                          </span>
+                        </div>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {group.points.map((point, idx) => {
+                            const offset = getStackOffset(idx, group.points.length);
+                            return (
+                              <div
+                                key={point.id}
+                                className="flex items-center gap-2 group"
+                                style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+                              >
+                                <div
+                                  className={`w-7 h-7 rounded-full flex items-center justify-center shadow border-2 border-white cursor-grab active:cursor-grabbing flex-shrink-0 ${primaryColor}`}
+                                  onMouseDown={(e) => handleMouseDown(e, point.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingPoint(point);
+                                    setEditValue(point.name);
+                                    setEditDialogOpen(true);
+                                  }}
+                                >
+                                  <span className="text-[10px] font-bold text-white">
+                                    {point.name.substring(0, 2).toUpperCase()}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-white truncate flex-1">
+                                  {point.name}
+                                </span>
+                                <button
+                                  className="w-5 h-5 bg-red-500/80 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeletePoint(point.id);
+                                    if (group.points.length <= 2) {
+                                      setExpandedGroup(null);
+                                    }
+                                  }}
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <button
+                          className="w-full mt-2 pt-2 border-t border-slate-600 text-xs text-slate-400 hover:text-white transition-colors"
+                          onClick={() => setExpandedGroup(null)}
+                        >
+                          Cerrar
+                        </button>
+                      </div>
+                      <div className="w-3 h-3 bg-slate-800 rotate-45 mx-auto -mt-1.5" />
+                    </div>
+                  )}
+
+                  {/* Hover tooltip for stacked */}
+                  <div 
+                    className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 transition-opacity duration-150 pointer-events-none ${isGroupHovered && !isExpanded ? "opacity-100" : "opacity-0"}`}
+                  >
+                    <div className="bg-slate-800 text-white text-xs px-2 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
+                      <p className="font-semibold">{group.points.length} elementos</p>
+                      <p className="text-slate-300 text-[10px]">Click para ver</p>
+                    </div>
+                    <div className="w-2 h-2 bg-slate-800 rotate-45 mx-auto -mt-1" />
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -426,7 +562,7 @@ const QuadrantChart = ({
 
       {/* Instructions */}
       <p className="text-center text-[10px] text-slate-400 mt-2">
-        ✨ Haz clic en un punto para editarlo
+        ✨ Haz clic en un punto para editarlo • {groupedPoints.length !== points.length ? `${points.length - groupedPoints.length} elementos superpuestos` : 'Sin superposición'}
       </p>
     </div>
   );

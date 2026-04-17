@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ScatterChart,
   TrendingUp,
@@ -16,6 +17,10 @@ import {
   Plus,
   Sparkles,
   Loader2,
+  Send,
+  Check,
+  X,
+  MessageCircle,
 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -35,6 +40,21 @@ interface AxisConfig {
   xRight: string;
   yBottom: string;
   yTop: string;
+}
+
+interface ChatMessage {
+  id: string;
+  role: "user" | "ai";
+  content: string;
+  suggestedItems?: SuggestedItem[];
+  timestamp: Date;
+}
+
+interface SuggestedItem {
+  name: string;
+  x: number;
+  y: number;
+  reasoning: string;
 }
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -72,9 +92,19 @@ const Index = () => {
   });
 
   const [newItem, setNewItem] = useState("");
-  const [aiPrompt, setAiPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState("");
+  
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: "welcome",
+      role: "ai",
+      content: "¡Hola! Soy tu asistente de clasificación. Puedo ayudarte a colocar elementos en el gráfico de 4 cuadrantes. Simplemente pregúntame o dime qué elemento quieres clasificar, y te sugeriré dónde ubicarlo.",
+      timestamp: new Date(),
+    },
+  ]);
+  const [chatInput, setChatInput] = useState("");
 
   const getQuadrant = (x: number, y: number): DataPoint["quadrant"] => {
     const isTop = y >= 5;
@@ -139,21 +169,30 @@ const Index = () => {
     showSuccess("Nombre actualizado");
   };
 
-  const handleAskAI = async () => {
-    if (!aiPrompt.trim()) return;
+  const handleSendChat = async () => {
+    if (!chatInput.trim()) return;
     if (!apiKey.trim()) {
       showError("Necesitas configurar tu API key de MiniMax");
       return;
     }
 
+    const userMessage: ChatMessage = {
+      id: generateId(),
+      role: "user",
+      content: chatInput.trim(),
+      timestamp: new Date(),
+    };
+
+    setChatMessages(prev => [...prev, userMessage]);
+    setChatInput("");
     setIsLoading(true);
-    
+
     try {
       const context = `
 Eje X: ${axes.xLabel} (0=${axes.xLeft}, 10=${axes.xRight})
 Eje Y: ${axes.yLabel} (0=${axes.yBottom}, 10=${axes.yTop})
 
-Items existentes: ${points.map(p => `${p.name} (x:${p.x}, y:${p.y})`).join(", ")}
+Items existentes en el gráfico: ${points.map(p => `${p.name} (x:${p.x}, y:${p.y})`).join(", ")}
 
 Cuadrantes:
 - Arriba-izquierda: ${axes.yTop} pero ${axes.xLeft}
@@ -161,17 +200,17 @@ Cuadrantes:
 - Abajo-izquierda: ${axes.yBottom} y ${axes.xLeft}
 - Abajo-derecha: ${axes.yBottom} pero ${axes.xRight}
 
-Items ya existentes en el gráfico: ${points.map(p => p.name).join(", ")}
+El usuario pregunta: "${userMessage.content}"
 
-El usuario pregunta o quiere clasificar: "${aiPrompt}"
-
-Basándote en el contexto de los ejes y cuadrantes definidos, dime dónde colocarías el/los item(s) mencionado(s).
+Responde de manera amigable y útil. Si el usuario quiere clasificar algo, sugiere dónde colocarlo y explica por qué.
 Responde SOLO en formato JSON con este esquema:
 {
-  "items": [
-    {"name": "nombre del item", "x": 0-10, "y": 0-10, "reasoning": "breve explicación de 1-2 oraciones"}
+  "response": "tu respuesta en texto plano al usuario",
+  "suggestions": [
+    {"name": "nombre del item", "x": 0-10, "y": 0-10, "reasoning": "breve explicación"}
   ]
 }
+Si no hay sugerencias de items, envía un array vacío en "suggestions".
 No incluyas ningún otro texto besides el JSON.`;
 
       const response = await fetch("https://api.minimax.chat/v1/text/chatcompletion_pro?GroupId=YOUR_GROUP_ID", {
@@ -202,46 +241,78 @@ No incluyas ningún otro texto besides el JSON.`;
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        const newPoints: DataPoint[] = parsed.items.map((item: any) => {
-          const x = Math.round(Math.min(10, Math.max(0, item.x)));
-          const y = Math.round(Math.min(10, Math.max(0, item.y)));
-          const quadrant = getQuadrant(x, y);
-          return {
-            id: generateId(),
-            name: item.name,
-            x,
-            y,
-            color: QUADRANT_COLORS[quadrant],
-            quadrant,
-          };
-        });
-
-        setPoints([...points, ...newPoints]);
-        showSuccess(`${newPoints.length} item(s) agregado(s) por IA`);
+        
+        const aiMessage: ChatMessage = {
+          id: generateId(),
+          role: "ai",
+          content: parsed.response || content,
+          suggestedItems: parsed.suggestions || [],
+          timestamp: new Date(),
+        };
+        
+        setChatMessages(prev => [...prev, aiMessage]);
+      } else {
+        throw new Error("Invalid response format");
       }
     } catch (error) {
-      const demoResponses = [
-        { name: aiPrompt.trim(), x: 7, y: 6 },
+      // Demo response when API fails
+      const demoSuggestions: SuggestedItem[] = [
+        { name: chatInput.trim(), x: 7, y: 6, reasoning: "Basado en el contexto del gráfico" }
       ];
-      
-      const newPoints: DataPoint[] = demoResponses.map((item) => {
-        const quadrant = getQuadrant(item.x, item.y);
-        return {
-          id: generateId(),
-          name: item.name,
-          x: item.x,
-          y: item.y,
-          color: QUADRANT_COLORS[quadrant],
-          quadrant,
-        };
-      });
 
-      setPoints([...points, ...newPoints]);
-      showSuccess(`"${aiPrompt.trim()}" agregado (demo)`);
+      const aiMessage: ChatMessage = {
+        id: generateId(),
+        role: "ai",
+        content: `Entiendo que quieres agregar "${chatInput.trim()}" al gráfico. Te sugiero colocarlo en el cuadrante de arriba-derecha (alto ${axes.yLabel}, alta ${axes.xLabel}). ¿Quieres que lo agregue?`,
+        suggestedItems: demoSuggestions,
+        timestamp: new Date(),
+      };
+      
+      setChatMessages(prev => [...prev, aiMessage]);
     }
 
     setIsLoading(false);
-    setAiPrompt("");
+  };
+
+  const handleAddSuggestedItem = (item: SuggestedItem) => {
+    const x = Math.round(Math.min(10, Math.max(0, item.x)));
+    const y = Math.round(Math.min(10, Math.max(0, item.y)));
+    const quadrant = getQuadrant(x, y);
+    
+    const newPoint: DataPoint = {
+      id: generateId(),
+      name: item.name,
+      x,
+      y,
+      color: QUADRANT_COLORS[quadrant],
+      quadrant,
+    };
+    
+    setPoints([...points, newPoint]);
+    showSuccess(`"${item.name}" agregado al gráfico`);
+    
+    // Remove the suggestion from the last AI message
+    setChatMessages(prev => prev.map(msg => {
+      if (msg.role === "ai" && msg.suggestedItems) {
+        return {
+          ...msg,
+          suggestedItems: msg.suggestedItems.filter(s => s.name !== item.name),
+        };
+      }
+      return msg;
+    }));
+  };
+
+  const handleRejectSuggestion = (itemName: string) => {
+    setChatMessages(prev => prev.map(msg => {
+      if (msg.role === "ai" && msg.suggestedItems) {
+        return {
+          ...msg,
+          suggestedItems: msg.suggestedItems.filter(s => s.name !== itemName),
+        };
+      }
+      return msg;
+    }));
   };
 
   const handleClearAll = () => {
@@ -340,49 +411,108 @@ No incluyas ningún otro texto besides el JSON.`;
                   </Button>
                 </TabsContent>
 
-                <TabsContent value="ai" className="space-y-4 mt-4">
-                  <div>
-                    <Label htmlFor="apiKey">API Key de MiniMax</Label>
-                    <Input
-                      id="apiKey"
-                      type="password"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="Ingresa tu API key"
-                      className="mt-1"
-                    />
+                <TabsContent value="ai" className="mt-4">
+                  <div className="space-y-4">
+                    {/* API Key Input */}
+                    <div>
+                      <Label htmlFor="apiKey" className="text-xs">API Key de MiniMax</Label>
+                      <Input
+                        id="apiKey"
+                        type="password"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="Ingresa tu API key"
+                        className="mt-1"
+                      />
+                    </div>
+
+                    {/* Chat Messages */}
+                    <ScrollArea className="h-[280px] pr-4">
+                      <div className="space-y-4">
+                        {chatMessages.map((msg) => (
+                          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                            <div className={`max-w-[85%] ${msg.role === "user" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-800"} rounded-2xl px-4 py-3`}>
+                              <div className="flex items-start gap-2">
+                                {msg.role === "ai" && (
+                                  <Brain className="w-4 h-4 mt-0.5 text-indigo-600 flex-shrink-0" />
+                                )}
+                                <div className="flex-1">
+                                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                  
+                                  {/* Suggested Items */}
+                                  {msg.suggestedItems && msg.suggestedItems.length > 0 && (
+                                    <div className="mt-3 space-y-2">
+                                      <p className="text-xs font-medium opacity-75">¿Agregar al gráfico?</p>
+                                      {msg.suggestedItems.map((item, idx) => (
+                                        <div key={idx} className="bg-white/10 rounded-lg p-2">
+                                          <div className="flex items-center justify-between">
+                                            <span className="font-medium text-sm">{item.name}</span>
+                                            <Badge variant="outline" className="text-xs ml-2">
+                                              ({item.x}, {item.y})
+                                            </Badge>
+                                          </div>
+                                          <p className="text-xs opacity-75 mt-1">{item.reasoning}</p>
+                                          <div className="flex gap-2 mt-2">
+                                            <Button 
+                                              size="sm" 
+                                              variant="ghost" 
+                                              className="h-7 text-xs flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-700"
+                                              onClick={() => handleAddSuggestedItem(item)}
+                                            >
+                                              <Check className="w-3 h-3 mr-1" />
+                                              Agregar
+                                            </Button>
+                                            <Button 
+                                              size="sm" 
+                                              variant="ghost" 
+                                              className="h-7 text-xs flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-700"
+                                              onClick={() => handleRejectSuggestion(item.name)}
+                                            >
+                                              <X className="w-3 h-3 mr-1" />
+                                              Ignorar
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {isLoading && (
+                          <div className="flex justify-start">
+                            <div className="bg-slate-100 rounded-2xl px-4 py-3">
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Brain className="w-4 h-4 animate-pulse" />
+                                <span className="text-sm">Pensando...</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+
+                    {/* Chat Input */}
+                    <div className="flex gap-2">
+                      <Input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        placeholder="Pregunta o escribe un elemento..."
+                        onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
+                        disabled={isLoading}
+                      />
+                      <Button onClick={handleSendChat} disabled={isLoading || !chatInput.trim()} size="icon">
+                        {isLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="aiPrompt">Pregunta o elemento a clasificar</Label>
-                    <Textarea
-                      id="aiPrompt"
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      placeholder="Ej: ¿Dónde pondrías un abogado?"
-                      className="mt-1 resize-none"
-                      rows={3}
-                    />
-                  </div>
-                  <Button
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600"
-                    onClick={handleAskAI}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Pensando...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Preguntar a la IA
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-slate-500 text-center">
-                    La IA analizará el contexto y sugerirá dónde colocar el elemento
-                  </p>
                 </TabsContent>
 
                 <TabsContent value="config" className="space-y-4 mt-4">

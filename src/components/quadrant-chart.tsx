@@ -127,33 +127,6 @@ const QuadrantChart = ({
     }
   };
 
-  const quadrantLabels = [
-    { 
-      q: "top-left", 
-      label: axes.yTop,
-      sublabel: axes.xLeft,
-      style: "text-left top-[15px] left-[15px]"
-    },
-    { 
-      q: "top-right", 
-      label: axes.yTop,
-      sublabel: axes.xRight,
-      style: "text-right top-[15px] right-[15px]"
-    },
-    { 
-      q: "bottom-left", 
-      label: axes.yBottom,
-      sublabel: axes.xLeft,
-      style: "text-left bottom-[15px] left-[15px]"
-    },
-    { 
-      q: "bottom-right", 
-      label: axes.yBottom,
-      sublabel: axes.xRight,
-      style: "text-right bottom-[15px] right-[15px]"
-    },
-  ];
-
   return (
     <div className="w-full" ref={containerRef}>
       <div
@@ -190,7 +163,6 @@ const QuadrantChart = ({
 
         {/* Grid lines - center lines are thicker */}
         <div className="absolute inset-0 pointer-events-none">
-          {/* Vertical grid lines */}
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
             <div
               key={`v-${i}`}
@@ -198,7 +170,6 @@ const QuadrantChart = ({
               style={{ left: PADDING + i * cellSize }}
             />
           ))}
-          {/* Horizontal grid lines */}
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
             <div
               key={`h-${i}`}
@@ -208,37 +179,81 @@ const QuadrantChart = ({
           ))}
         </div>
 
-        {/* Quadrant Labels - positioned in corners of each quadrant */}
-        {quadrantLabels.map((ql) => {
-          const styles = getQuadrantStyles(ql.q);
-          return (
-            <div
-              key={ql.q}
-              className={`absolute ${styles.bg} ${styles.text} ${ql.style} text-[10px] font-semibold p-2 rounded-lg border ${styles.border} opacity-90 pointer-events-none z-20 max-w-[45%] leading-tight`}
-            >
-              <div>{ql.label}</div>
-              <div className="opacity-75">{ql.sublabel}</div>
-            </div>
-          );
-        })}
-
-        {/* X-axis label */}
-        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30">
-          {axes.xLabel}
+        {/* Quadrant Labels - in corners inside each quadrant */}
+        <div className={`absolute text-[11px] font-semibold p-1.5 rounded-lg border ${getQuadrantStyles("top-left").bg} ${getQuadrantStyles("top-left").text} ${getQuadrantStyles("top-left").border} opacity-90 pointer-events-none z-20`}
+          style={{ top: PADDING + 8, left: PADDING + 8 }}>
+          <div>{axes.yTop}</div>
+          <div className="opacity-75 text-[10px]">{axes.xLeft}</div>
+        </div>
+        
+        <div className={`absolute text-[11px] font-semibold p-1.5 rounded-lg border ${getQuadrantStyles("top-right").bg} ${getQuadrantStyles("top-right").text} ${getQuadrantStyles("top-right").border} opacity-90 pointer-events-none z-20`}
+          style={{ top: PADDING + 8, right: PADDING + 8 }}>
+          <div>{axes.yTop}</div>
+          <div className="opacity-75 text-[10px]">{axes.xRight}</div>
+        </div>
+        
+        <div className={`absolute text-[11px] font-semibold p-1.5 rounded-lg border ${getQuadrantStyles("bottom-left").bg} ${getQuadrantStyles("bottom-left").text} ${getQuadrantStyles("bottom-left").border} opacity-90 pointer-events-none z-20`}
+          style={{ bottom: PADDING + 8, left: PADDING + 8 }}>
+          <div>{axes.yBottom}</div>
+          <div className="opacity-75 text-[10px]">{axes.xLeft}</div>
+        </div>
+        
+        <div className={`absolute text-[11px] font-semibold p-1.5 rounded-lg border ${getQuadrantStyles("bottom-right").bg} ${getQuadrantStyles("bottom-right").text} ${getQuadrantStyles("bottom-right").border} opacity-90 pointer-events-none z-20`}
+          style={{ bottom: PADDING + 8, right: PADDING + 8 }}>
+          <div>{axes.yBottom}</div>
+          <div className="opacity-75 text-[10px]">{axes.xRight}</div>
         </div>
 
-        {/* Y-axis label */}
-        <div className="absolute left-1 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
+        {/* Axis Labels - centered on each edge */}
+        <div className="absolute left-1/2 -translate-x-1/2 text-xs font-bold text-slate-700 bg-white/95 px-3 py-1 rounded-full shadow-sm z-30 border border-slate-200">
+          {axes.xLabel}
+        </div>
+        
+        <div className="absolute top-1/2 -translate-y-1/2 -rotate-90 text-xs font-bold text-slate-700 bg-white/95 px-3 py-1 rounded-full shadow-sm z-30 border border-slate-200"
+          style={{ left: "4px" }}>
           {axes.yLabel}
         </div>
 
-        {/* X-axis numbers (bottom) */}
+        {/* X-axis endpoint labels */}
+        <div className="absolute text-[10px] text-rose-600 font-medium bg-white/90 px-1.5 py-0.5 rounded shadow-sm z-30"
+          style={{ 
+            bottom: PADDING - 18, 
+            left: PADDING + 4,
+            writingMode: "vertical-rl",
+            textOrientation: "mixed",
+            transform: "rotate(180deg)"
+          }}>
+          {axes.xLeft}
+        </div>
+        
+        <div className="absolute text-[10px] text-blue-600 font-medium bg-white/90 px-1.5 py-0.5 rounded shadow-sm z-30"
+          style={{ 
+            bottom: PADDING - 18, 
+            right: PADDING + 4,
+            writingMode: "vertical-rl",
+            textOrientation: "mixed"
+          }}>
+          {axes.xRight}
+        </div>
+
+        {/* Y-axis endpoint labels */}
+        <div className="absolute text-[10px] text-emerald-600 font-medium bg-white/90 px-1.5 py-0.5 rounded shadow-sm z-30"
+          style={{ top: PADDING + 4, left: PADDING - 20 }}>
+          {axes.yTop}
+        </div>
+        
+        <div className="absolute text-[10px] text-green-600 font-medium bg-white/90 px-1.5 py-0.5 rounded shadow-sm z-30"
+          style={{ bottom: PADDING + 4, left: PADDING - 20 }}>
+          {axes.yBottom}
+        </div>
+
+        {/* Axis numbers */}
         <div 
           className="absolute flex justify-between pointer-events-none z-30"
           style={{ 
             left: PADDING, 
             right: PADDING, 
-            bottom: "2px",
+            bottom: 2,
           }}
         >
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
@@ -248,7 +263,6 @@ const QuadrantChart = ({
           ))}
         </div>
 
-        {/* Y-axis numbers (left side) */}
         <div className="absolute top-0 bottom-0 left-0 flex flex-col justify-between pointer-events-none z-30" style={{ paddingTop: PADDING, paddingBottom: PADDING }}>
           {Array.from({ length: GRID_SIZE + 1 }).reverse().map((_, i) => (
             <span key={i} className="text-[9px] text-slate-400 font-medium absolute left-[2px]" style={{ top: i * cellSize }}>
@@ -295,7 +309,6 @@ const QuadrantChart = ({
                 </span>
               </div>
               
-              {/* Tooltip */}
               <div 
                 className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 transition-opacity duration-150 pointer-events-none ${isHovered || isDragging ? "opacity-100" : "opacity-0"}`}
               >
@@ -306,7 +319,6 @@ const QuadrantChart = ({
                 <div className="w-2 h-2 bg-slate-800 rotate-45 mx-auto -mt-1" />
               </div>
 
-              {/* Delete button */}
               <button
                 className={`absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity duration-150 hover:bg-red-600 ${isHovered || isDragging ? "opacity-100" : "opacity-0"}`}
                 onClick={(e) => {
@@ -321,7 +333,6 @@ const QuadrantChart = ({
         })}
       </div>
 
-      {/* Instructions */}
       <p className="text-center text-[10px] text-slate-400 mt-2">
         ✨ Arrastra los puntos para posicionarlos
       </p>

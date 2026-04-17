@@ -69,7 +69,7 @@ const QuadrantChart = ({
 }: QuadrantChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bubbleRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
+  const [containerWidth, setContainerWidth] = useState(400);
   const [dragging, setDragging] = useState<string | null>(null);
   const [draggedDistance, setDraggedDistance] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -80,17 +80,16 @@ const QuadrantChart = ({
   const [isMeasuring, setIsMeasuring] = useState(false);
 
   useEffect(() => {
-    const updateDimensions = () => {
+    const updateWidth = () => {
       if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const size = Math.min(rect.width, 600);
-        setDimensions({ width: size, height: size });
+        const width = containerRef.current.offsetWidth;
+        setContainerWidth(width);
       }
     };
 
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-    return () => window.removeEventListener("resize", updateDimensions);
+    updateWidth();
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
   }, []);
 
   // Measure bubbles after render
@@ -115,7 +114,7 @@ const QuadrantChart = ({
     return () => clearTimeout(timer);
   }, [points, isMeasuring]);
 
-  const graphSize = dimensions.width - PADDING * 2;
+  const graphSize = containerWidth - PADDING * 2;
   const cellSize = graphSize / GRID_SIZE;
 
   // Group points by position
@@ -345,7 +344,7 @@ const QuadrantChart = ({
     <div className="w-full" ref={containerRef}>
       <div
         className="relative w-full bg-white rounded-xl border-2 border-slate-200 overflow-hidden select-none"
-        style={{ height: dimensions.width }}
+        style={{ height: containerWidth }}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}

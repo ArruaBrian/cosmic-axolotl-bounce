@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, GripVertical } from "lucide-react";
+import { X } from "lucide-react";
 
 interface DataPoint {
   id: string;
@@ -29,7 +29,7 @@ interface QuadrantChartProps {
 }
 
 const GRID_SIZE = 10;
-const PADDING = 40;
+const PADDING = 50;
 
 const QuadrantChart = ({
   points,
@@ -38,7 +38,7 @@ const QuadrantChart = ({
   onDeletePoint,
 }: QuadrantChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 500, height: 500 });
+  const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
   const [dragging, setDragging] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
 
@@ -102,22 +102,6 @@ const QuadrantChart = ({
     setDragging(null);
   };
 
-  const handleGridClick = (e: React.MouseEvent) => {
-    if (dragging) return;
-    
-    const { x, y } = getPointFromMouse(e.clientX, e.clientY);
-    const newPoint = {
-      id: `click-${Date.now()}`,
-      name: `Punto (${x},${y})`,
-      x,
-      y,
-      color: "bg-amber-400",
-      quadrant: getQuadrant(x, y) as DataPoint["quadrant"],
-    };
-    
-    onUpdatePoint(newPoint.id, x, y);
-  };
-
   const getQuadrant = (x: number, y: number): string => {
     const isTop = y >= 5;
     const isRight = x >= 5;
@@ -128,39 +112,58 @@ const QuadrantChart = ({
     return "bottom-right";
   };
 
-  const getQuadrantColors = (quadrant: string) => {
+  const getQuadrantStyles = (quadrant: string) => {
     switch (quadrant) {
       case "top-left":
-        return { bg: "bg-rose-200/60", border: "border-rose-300", text: "text-rose-700" };
+        return { bg: "bg-rose-200/70", text: "text-rose-700", border: "border-rose-300" };
       case "top-right":
-        return { bg: "bg-blue-200/60", border: "border-blue-300", text: "text-blue-700" };
+        return { bg: "bg-blue-200/70", text: "text-blue-700", border: "border-blue-300" };
       case "bottom-left":
-        return { bg: "bg-green-200/60", border: "border-green-300", text: "text-green-700" };
+        return { bg: "bg-green-200/70", text: "text-green-700", border: "border-green-300" };
       case "bottom-right":
-        return { bg: "bg-violet-200/60", border: "border-violet-300", text: "text-violet-700" };
+        return { bg: "bg-violet-200/70", text: "text-violet-700", border: "border-violet-300" };
       default:
-        return { bg: "bg-slate-100", border: "border-slate-200", text: "text-slate-700" };
+        return { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-300" };
     }
   };
 
   const quadrantLabels = [
-    { q: "top-left", label: `${axes.yTop}\n${axes.xLeft}` },
-    { q: "top-right", label: `${axes.yTop}\n${axes.xRight}`, align: "right" },
-    { q: "bottom-left", label: `${axes.yBottom}\n${axes.xLeft}`, bottom: true },
-    { q: "bottom-right", label: `${axes.yBottom}\n${axes.xRight}`, align: "right", bottom: true },
+    { 
+      q: "top-left", 
+      label: axes.yTop,
+      sublabel: axes.xLeft,
+      style: "text-left top-[15px] left-[15px]"
+    },
+    { 
+      q: "top-right", 
+      label: axes.yTop,
+      sublabel: axes.xRight,
+      style: "text-right top-[15px] right-[15px]"
+    },
+    { 
+      q: "bottom-left", 
+      label: axes.yBottom,
+      sublabel: axes.xLeft,
+      style: "text-left bottom-[15px] left-[15px]"
+    },
+    { 
+      q: "bottom-right", 
+      label: axes.yBottom,
+      sublabel: axes.xRight,
+      style: "text-right bottom-[15px] right-[15px]"
+    },
   ];
 
   return (
-    <div className="w-full max-w-[600px] mx-auto">
+    <div className="w-full" ref={containerRef}>
       <div
-        ref={containerRef}
-        className="relative w-full bg-white rounded-xl border-2 border-slate-200 overflow-hidden select-none cursor-crosshair"
+        className="relative w-full bg-white rounded-xl border-2 border-slate-200 overflow-hidden select-none"
         style={{ height: dimensions.width }}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        {/* 10x10 Grid with colored quadrants */}
+        {/* 10x10 Grid Background */}
         <div 
           className="absolute inset-0 grid"
           style={{ 
@@ -174,108 +177,96 @@ const QuadrantChart = ({
             const x = col;
             const y = GRID_SIZE - 1 - row;
             const quadrant = getQuadrant(x, y);
-            const colors = getQuadrantColors(quadrant);
+            const styles = getQuadrantStyles(quadrant);
             
             return (
               <div
                 key={i}
-                className={`border border-slate-200/50 ${colors.bg} hover:opacity-80 transition-opacity`}
+                className={`border border-slate-200/30 ${styles.bg} transition-opacity`}
               />
             );
           })}
         </div>
 
-        {/* Grid lines overlay */}
+        {/* Grid lines - center lines are thicker */}
         <div className="absolute inset-0 pointer-events-none">
           {/* Vertical grid lines */}
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
             <div
               key={`v-${i}`}
-              className="absolute top-0 bottom-0 bg-slate-300/30"
-              style={{ left: PADDING + i * cellSize, width: i === 5 ? "2px" : "1px" }}
+              className={`absolute top-0 bottom-0 ${i === 5 ? "bg-slate-400/60 w-0.5" : "bg-slate-300/40 w-px"}`}
+              style={{ left: PADDING + i * cellSize }}
             />
           ))}
           {/* Horizontal grid lines */}
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
             <div
               key={`h-${i}`}
-              className="absolute left-0 right-0 bg-slate-300/30"
-              style={{ top: PADDING + i * cellSize, height: i === 5 ? "2px" : "1px" }}
+              className={`absolute left-0 right-0 ${i === 5 ? "bg-slate-400/60 h-0.5" : "bg-slate-300/40 h-px"}`}
+              style={{ top: PADDING + i * cellSize }}
             />
           ))}
         </div>
 
-        {/* Quadrant Labels */}
+        {/* Quadrant Labels - positioned in corners of each quadrant */}
         {quadrantLabels.map((ql) => {
-          const pos = getGridPosition(
-            ql.align === "right" ? GRID_SIZE - 1 : 1,
-            ql.bottom ? 1 : GRID_SIZE - 1
-          );
+          const styles = getQuadrantStyles(ql.q);
           return (
             <div
               key={ql.q}
-              className={`absolute text-xs font-semibold ${getQuadrantColors(ql.q).text} opacity-70 pointer-events-none whitespace-pre-line ${
-                ql.align === "right" ? "text-right" : "text-left"
-              }`}
-              style={{
-                left: ql.align === "right" ? undefined : pos.left,
-                right: ql.align === "right" ? dimensions.width - pos.left : undefined,
-                top: ql.bottom ? pos.top : pos.top - 30,
-              }}
+              className={`absolute ${styles.bg} ${styles.text} ${ql.style} text-[10px] font-semibold p-2 rounded-lg border ${styles.border} opacity-90 pointer-events-none z-20 max-w-[45%] leading-tight`}
             >
-              {ql.label}
+              <div>{ql.label}</div>
+              <div className="opacity-75">{ql.sublabel}</div>
             </div>
           );
         })}
 
-        {/* Axis Labels */}
-        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-sm font-semibold text-slate-600 bg-white/80 px-2 py-0.5 rounded">
+        {/* X-axis label */}
+        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30">
           {axes.xLabel}
         </div>
-        <div 
-          className="absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 text-sm font-semibold text-slate-600 bg-white/80 px-2 py-0.5 rounded"
-          style={{ marginLeft: "-30px" }}
-        >
+
+        {/* Y-axis label */}
+        <div className="absolute left-1 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
           {axes.yLabel}
         </div>
 
-        {/* Edge labels */}
-        <div className="absolute bottom-1 left-1 text-xs text-rose-500 font-medium">
-          {axes.xLeft}
-        </div>
-        <div className="absolute bottom-1 right-1 text-xs text-blue-500 font-medium">
-          {axes.xRight}
-        </div>
-        <div className="absolute top-1 left-1 text-xs text-emerald-500 font-medium">
-          {axes.yTop}
-        </div>
-        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs text-green-500 font-medium" style={{ bottom: "20px" }}>
-          {axes.yBottom}
-        </div>
-
-        {/* X-axis numbers */}
-        <div className="absolute bottom-0 left-0 right-0 flex justify-between px-[40px]">
+        {/* X-axis numbers (bottom) */}
+        <div 
+          className="absolute flex justify-between pointer-events-none z-30"
+          style={{ 
+            left: PADDING, 
+            right: PADDING, 
+            bottom: "2px",
+          }}
+        >
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
-            <span key={i} className="text-[10px] text-slate-400 relative" style={{ 
-              left: `-${cellSize/2}px`
-            }}>
+            <span key={i} className="text-[9px] text-slate-400 font-medium w-0 text-center">
               {i}
             </span>
           ))}
         </div>
 
-        {/* Y-axis numbers */}
-        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between py-[40px]">
-          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
-            <span 
-              key={i} 
-              className="text-[10px] text-slate-400 absolute left-[12px]"
-              style={{ top: `${PADDING + i * cellSize - 5}px` }}
-            >
-              {GRID_SIZE - i}
+        {/* Y-axis numbers (left side) */}
+        <div className="absolute top-0 bottom-0 left-0 flex flex-col justify-between pointer-events-none z-30" style={{ paddingTop: PADDING, paddingBottom: PADDING }}>
+          {Array.from({ length: GRID_SIZE + 1 }).reverse().map((_, i) => (
+            <span key={i} className="text-[9px] text-slate-400 font-medium absolute left-[2px]" style={{ top: i * cellSize }}>
+              {i}
             </span>
           ))}
         </div>
+
+        {/* Border frame */}
+        <div 
+          className="absolute border-2 border-slate-400 pointer-events-none z-10"
+          style={{
+            top: PADDING,
+            left: PADDING,
+            width: graphSize,
+            height: graphSize,
+          }}
+        />
 
         {/* Data Points - snap to grid intersections */}
         {points.map((point) => {
@@ -286,46 +277,38 @@ const QuadrantChart = ({
           return (
             <div
               key={point.id}
-              className={`absolute transition-all duration-75 ${
-                isDragging ? "z-50 scale-110" : isHovered ? "z-40 scale-105" : "z-10"
-              }`}
+              className={`absolute transition-all duration-75 ${isDragging ? "z-50" : isHovered ? "z-40" : "z-10"}`}
               style={{
                 left: `${pos.left}px`,
                 top: `${pos.top}px`,
-                transform: "translate(-50%, -50%)",
+                transform: `translate(-50%, -50%) ${isDragging ? "scale(1.15)" : isHovered ? "scale(1.08)" : "scale(1)"}`,
               }}
             >
               <div
-                className={`${point.color} w-10 h-10 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-transform ${
-                  isDragging ? "shadow-xl ring-4 ring-white/50" : ""
-                }`}
+                className={`${point.color} w-9 h-9 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-transform`}
                 onMouseDown={(e) => handleMouseDown(e, point.id)}
                 onMouseEnter={() => setHovered(point.id)}
                 onMouseLeave={() => setHovered(null)}
               >
-                <span className="text-xs font-bold text-white drop-shadow">
+                <span className="text-xs font-bold text-white drop-shadow-sm">
                   {point.name.substring(0, 2).toUpperCase()}
                 </span>
               </div>
               
               {/* Tooltip */}
               <div 
-                className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 transition-opacity duration-150 pointer-events-none ${
-                  isHovered || isDragging ? "opacity-100" : "opacity-0"
-                }`}
+                className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 transition-opacity duration-150 pointer-events-none ${isHovered || isDragging ? "opacity-100" : "opacity-0"}`}
               >
-                <div className="bg-slate-800 text-white text-xs px-2 py-1 rounded-lg shadow-lg whitespace-nowrap">
+                <div className="bg-slate-800 text-white text-xs px-2 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
                   <p className="font-semibold">{point.name}</p>
-                  <p className="text-slate-300">x: {point.x}, y: {point.y}</p>
+                  <p className="text-slate-300 text-[10px]">x: {point.x}, y: {point.y}</p>
                 </div>
                 <div className="w-2 h-2 bg-slate-800 rotate-45 mx-auto -mt-1" />
               </div>
 
               {/* Delete button */}
               <button
-                className={`absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity duration-150 hover:bg-red-600 ${
-                  isHovered || isDragging ? "opacity-100" : "opacity-0"
-                }`}
+                className={`absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity duration-150 hover:bg-red-600 ${isHovered || isDragging ? "opacity-100" : "opacity-0"}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onDeletePoint(point.id);
@@ -336,21 +319,11 @@ const QuadrantChart = ({
             </div>
           );
         })}
-
-        {/* Border frame */}
-        <div 
-          className="absolute border-2 border-slate-400 pointer-events-none"
-          style={{
-            top: PADDING,
-            left: PADDING,
-            width: graphSize,
-            height: graphSize,
-          }}
-        />
       </div>
 
-      <p className="text-center text-xs text-slate-500 mt-3">
-        ✨ Arrastra los puntos para posicionarlos • Cada posición es de 0 a 10 en X e Y
+      {/* Instructions */}
+      <p className="text-center text-[10px] text-slate-400 mt-2">
+        ✨ Arrastra los puntos para posicionarlos
       </p>
     </div>
   );

@@ -18,6 +18,9 @@ import {
   Send,
   Check,
   X,
+  Sparkles,
+  RotateCcw,
+  Pencil,
 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -45,6 +48,15 @@ interface ChatMessage {
   content: string;
   suggestedItems?: SuggestedItem[];
   timestamp: Date;
+  planProposal?: PlanProposal;
+}
+
+interface PlanProposal {
+  type: "full_reset" | "partial_update" | "axis_change" | "bulk_add";
+  description: string;
+  newPoints?: DataPoint[];
+  newAxes?: AxisConfig;
+  pointsToRemove?: string[];
 }
 
 interface SuggestedItem {
@@ -53,6 +65,8 @@ interface SuggestedItem {
   y: number;
   reasoning: string;
 }
+
+type AIMode = "normal" | "plan";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -93,13 +107,14 @@ const Index = () => {
   const [newItem, setNewItem] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState("");
+  const [aiMode, setAiMode] = useState<AIMode>("normal");
   
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "ai",
-      content: "¡Hola! Soy tu asistente de clasificación. Puedo ayudarte a colocar elementos en el gráfico de 4 cuadrantes. Simplemente pregúntame o dime qué elemento quieres clasificar, y te sugeriré dónde ubicarlo.",
+      content: "¡Hola! Soy tu asistente de clasificación. Puedo ayudarte de dos maneras:\n\n📊 **Modo Normal**: Dime qué elemento quieres agregar y te diré dónde colocarlo en el gráfico.\n\n🗺️ **Modo Plan**: Cuéntame todo tu proyecto (ej: \"quiero comparar carreras por ingresos y satisfacción\") y te propondré un diseño completo del gráfico con todos los elementos. Necesitarás aprobar cada cambio.",
       timestamp: new Date(),
     },
   ]);
@@ -168,8 +183,7 @@ const Index = () => {
     showSuccess("Nombre actualizado");
   };
 
-  const buildSystemPrompt = () => {
-    // Dynamic quadrant descriptions based on user's axis configuration
+  const buildSystemPrompt = (mode: AIMode) => {
     const quadrantDescriptions = {
       "top-left": `${axes.yTop} pero ${axes.xLeft}`,
       "top-right": `${axes.yTop} y ${axes.xRight}`,
@@ -177,7 +191,7 @@ const Index = () => {
       "bottom-right": `${axes.yBottom} pero ${axes.xRight}`,
     };
 
-    return `Eres un asistente que ayuda a clasificar elementos en un gráfico de 4 cuadrantes.
+    const baseContext = `Eres un asistente que ayuda a clasificar elementos en un gráfico de 4 cuadrantes.
 
 El usuario ha configurado su gráfico con los siguientes ejes:
 - Eje X: ${axes.xLabel} (0=${axes.xLeft}, 10=${axes.xRight})
@@ -191,8 +205,12 @@ Cuadrantes del gráfico:
 - Arriba-izquierda (x<5, y>5): ${quadrantDescriptions["top-left"]}
 - Arriba-derecha (x>5, y>5): ${quadrantDescriptions["top-right"]}
 - Abajo-izquierda (x<5, y<5): ${quadrantDescriptions["bottom-left"]}
-- Abajo-derecha (x>5, y<5): ${quadrantDescriptions["bottom-right"]}
+- Abajo-derecha (x>5, y<5): ${quadrantDescriptions["bottom-right"]}`;
 
+    if (mode === "normal") {
+      return `${baseContext}
+
+MODO NORMAL:
 Responde de manera amigable y útil. Si el usuario quiere clasificar algo, sugiere dónde colocarlo basándote en el contexto de sus ejes. Explica tu razonamiento.
 
 Responde SOLO en formato JSON con este esquema:
@@ -204,10 +222,36 @@ Responde SOLO en formato JSON con este esquema:
 }
 Si no hay sugerencias de items, envía un array vacío en "suggestions".
 No incluyas ningún otro texto besides el JSON.`;
+    } else {
+      return `${baseContext}
+
+MODO PLAN (Cambios grandes con aprobación):
+El usuario quiere proponer cambios significativos al gráfico. Puedes:
+1. Cambiar los nombres de los ejes
+2. Agregar muchos elementos de una vez
+3. Hacer un reset completo del gráfico
+4. Mover/eliminar elementos existentes
+
+Siempre pregunta antes de hacer cambios. Tu respuesta DEBE incluir una propuesta formal.
+
+Responde SOLO en formato JSON con este esquema:
+{
+  "response": "tu explicación amigable al usuario sobre lo que propones",
+  "proposal": {
+    "type": "full_reset | partial_update | axis_change | bulk_add",
+    "description": "Descripción clara del cambio propuesto",
+    "newPoints": [{"name": "nombre", "x": 0-10, "y": 0-10}],
+    "newAxes": {"xLabel": "...", "yLabel": "...", "xLeft": "...", "xRight": "...", "yBottom": "...", "yTop": "..."},
+    "pointsToRemove": ["nombre1", "nombre2"]
+  }
+}
+Si NO hay propuesta de cambio (el usuario solo pregunta o conversa), pon "proposal": null.
+Solo incluye "proposal" si el usuario pide explícitamente crear, cambiar o resetear algo.
+No incluyas ningún otro texto besides el JSON.`;
+    }
   };
 
   const getLastMessages = (): ChatMessage[] => {
-    // Skip the welcome message, get the last MAX_CONTEXT_MESSAGES
     const messagesWithoutWelcome = chatMessages.filter(msg => msg.id !== "welcome");
     return messagesWithoutWelcome.slice(-MAX_CONTEXT_MESSAGES);
   };
@@ -231,10 +275,8 @@ No incluyas ningún otro texto besides el JSON.`;
     setIsLoading(true);
 
     try {
-      // Get last 10 messages for context
       const lastMessages = getLastMessages();
       
-      // Build conversation history
       const conversationHistory = lastMessages.map(msg => ({
         role: msg.role as "user" | "assistant",
         name: msg.role === "user" ? "User" : "MiniMax AI",
@@ -253,7 +295,7 @@ No incluyas ningún otro texto besides el JSON.`;
             {
               role: "system",
               name: "MiniMax AI",
-              content: buildSystemPrompt(),
+              content: buildSystemPrompt(aiMode),
             },
             ...conversationHistory,
             {
@@ -284,6 +326,11 @@ No incluyas ningún otro texto besides el JSON.`;
           suggestedItems: parsed.suggestions || [],
           timestamp: new Date(),
         };
+
+        // If in plan mode and there's a proposal, add it
+        if (aiMode === "plan" && parsed.proposal) {
+          aiMessage.planProposal = parsed.proposal;
+        }
         
         setChatMessages(prev => [...prev, aiMessage]);
       } else {
@@ -341,6 +388,67 @@ No incluyas ningún otro texto besides el JSON.`;
           ...msg,
           suggestedItems: msg.suggestedItems.filter(s => s.name !== itemName),
         };
+      }
+      return msg;
+    }));
+  };
+
+  const handleApproveProposal = (proposal: PlanProposal) => {
+    if (proposal.type === "full_reset") {
+      // Reset everything
+      setPoints([]);
+      setAxes({
+        xLabel: "Eje X",
+        yLabel: "Eje Y",
+        xLeft: "Bajo",
+        xRight: "Alto",
+        yBottom: "Bajo",
+        yTop: "Alto",
+      });
+      showSuccess("Gráfico reseteado");
+    }
+
+    if (proposal.newAxes) {
+      setAxes(proposal.newAxes);
+      showSuccess("Ejes actualizados");
+    }
+
+    if (proposal.newPoints && proposal.newPoints.length > 0) {
+      const newDataPoints: DataPoint[] = proposal.newPoints.map(p => {
+        const x = Math.round(Math.min(10, Math.max(0, p.x)));
+        const y = Math.round(Math.min(10, Math.max(0, p.y)));
+        return {
+          id: generateId(),
+          name: p.name,
+          x,
+          y,
+          color: QUADRANT_COLORS[getQuadrant(x, y)],
+          quadrant: getQuadrant(x, y),
+        };
+      });
+      setPoints(prev => [...prev, ...newDataPoints]);
+      showSuccess(`${newDataPoints.length} elementos agregados`);
+    }
+
+    if (proposal.pointsToRemove && proposal.pointsToRemove.length > 0) {
+      setPoints(prev => prev.filter(p => !proposal.pointsToRemove!.includes(p.name)));
+      showSuccess(`${proposal.pointsToRemove.length} elementos eliminados`);
+    }
+
+    // Remove the proposal from the message
+    setChatMessages(prev => prev.map(msg => {
+      if (msg.role === "ai" && msg.planProposal) {
+        return { ...msg, planProposal: undefined };
+      }
+      return msg;
+    }));
+  };
+
+  const handleRejectProposal = () => {
+    showError("Propuesta rechazada");
+    setChatMessages(prev => prev.map(msg => {
+      if (msg.role === "ai" && msg.planProposal) {
+        return { ...msg, planProposal: undefined };
       }
       return msg;
     }));
@@ -438,6 +546,7 @@ No incluyas ningún otro texto besides el JSON.`;
                     </div>
                   </div>
                   <Button variant="outline" className="w-full" onClick={handleClearAll}>
+                    <RotateCcw className="w-4 h-4 mr-2" />
                     Limpiar todo
                   </Button>
                 </TabsContent>
@@ -457,8 +566,35 @@ No incluyas ningún otro texto besides el JSON.`;
                       />
                     </div>
 
+                    {/* AI Mode Toggle */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant={aiMode === "normal" ? "default" : "outline"}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setAiMode("normal")}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" />
+                        Normal
+                      </Button>
+                      <Button
+                        variant={aiMode === "plan" ? "default" : "outline"}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setAiMode("plan")}
+                      >
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        Plan
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      {aiMode === "normal" 
+                        ? "Agrega elementos de uno en uno" 
+                        : "La IA propone cambios y pide aprobación"}
+                    </p>
+
                     {/* Chat Messages */}
-                    <ScrollArea className="h-[280px] pr-4">
+                    <ScrollArea className="h-[200px] pr-4">
                       <div className="space-y-4">
                         {chatMessages.map((msg) => (
                           <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -470,7 +606,7 @@ No incluyas ningún otro texto besides el JSON.`;
                                 <div className="flex-1">
                                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                                   
-                                  {/* Suggested Items */}
+                                  {/* Suggested Items (Normal Mode) */}
                                   {msg.suggestedItems && msg.suggestedItems.length > 0 && (
                                     <div className="mt-3 space-y-2">
                                       <p className="text-xs font-medium opacity-75">¿Agregar al gráfico?</p>
@@ -507,6 +643,75 @@ No incluyas ningún otro texto besides el JSON.`;
                                       ))}
                                     </div>
                                   )}
+
+                                  {/* Plan Proposal */}
+                                  {msg.planProposal && (
+                                    <div className="mt-3 space-y-2">
+                                      <div className="bg-indigo-100 border border-indigo-200 rounded-lg p-3">
+                                        <p className="text-xs font-semibold text-indigo-700 mb-2">📋 Propuesta de cambio</p>
+                                        <p className="text-xs text-indigo-600 mb-2">{msg.planProposal.description}</p>
+                                        
+                                        {msg.planProposal.newAxes && (
+                                          <div className="bg-white/50 rounded p-2 mb-2">
+                                            <p className="text-[10px] font-medium">Nuevos ejes:</p>
+                                            <p className="text-[10px]">X: {msg.planProposal.newAxes.xLabel}</p>
+                                            <p className="text-[10px]">Y: {msg.planProposal.newAxes.yLabel}</p>
+                                          </div>
+                                        )}
+                                        
+                                        {msg.planProposal.newPoints && msg.planProposal.newPoints.length > 0 && (
+                                          <div className="bg-white/50 rounded p-2 mb-2">
+                                            <p className="text-[10px] font-medium">Elementos a agregar ({msg.planProposal.newPoints.length}):</p>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {msg.planProposal.newPoints.slice(0, 5).map((p, idx) => (
+                                                <Badge key={idx} variant="outline" className="text-[10px]">
+                                                  {p.name} ({p.x},{p.y})
+                                                </Badge>
+                                              ))}
+                                              {msg.planProposal.newPoints.length > 5 && (
+                                                <Badge variant="outline" className="text-[10px]">
+                                                  +{msg.planProposal.newPoints.length - 5} más
+                                                </Badge>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {msg.planProposal.pointsToRemove && msg.planProposal.pointsToRemove.length > 0 && (
+                                          <div className="bg-red-50 rounded p-2 mb-2">
+                                            <p className="text-[10px] font-medium text-red-600">Elementos a eliminar:</p>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {msg.planProposal.pointsToRemove.map((name, idx) => (
+                                                <Badge key={idx} variant="destructive" className="text-[10px]">
+                                                  {name}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        <div className="flex gap-2 mt-3">
+                                          <Button 
+                                            size="sm" 
+                                            className="h-8 text-xs flex-1 bg-green-600 hover:bg-green-700"
+                                            onClick={() => handleApproveProposal(msg.planProposal!)}
+                                          >
+                                            <Check className="w-3 h-3 mr-1" />
+                                            Aprobar
+                                          </Button>
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            className="h-8 text-xs flex-1"
+                                            onClick={handleRejectProposal}
+                                          >
+                                            <X className="w-3 h-3 mr-1" />
+                                            Rechazar
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -531,7 +736,7 @@ No incluyas ningún otro texto besides el JSON.`;
                       <Input
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
-                        placeholder="Pregunta o escribe un elemento..."
+                        placeholder={aiMode === "normal" ? "Escribe un elemento..." : "Describe tu proyecto..."}
                         onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
                         disabled={isLoading}
                       />

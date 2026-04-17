@@ -127,33 +127,6 @@ const QuadrantChart = ({
     }
   };
 
-  const quadrantLabels = [
-    { 
-      q: "top-left", 
-      label: axes.yTop,
-      sublabel: axes.xLeft,
-      style: "text-left top-[15px] left-[15px]"
-    },
-    { 
-      q: "top-right", 
-      label: axes.yTop,
-      sublabel: axes.xRight,
-      style: "text-right top-[15px] right-[15px]"
-    },
-    { 
-      q: "bottom-left", 
-      label: axes.yBottom,
-      sublabel: axes.xLeft,
-      style: "text-left bottom-[15px] left-[15px]"
-    },
-    { 
-      q: "bottom-right", 
-      label: axes.yBottom,
-      sublabel: axes.xRight,
-      style: "text-right bottom-[15px] right-[15px]"
-    },
-  ];
-
   return (
     <div className="w-full" ref={containerRef}>
       <div
@@ -205,65 +178,6 @@ const QuadrantChart = ({
               className={`absolute left-0 right-0 ${i === 5 ? "bg-slate-400/60 h-0.5" : "bg-slate-300/40 h-px"}`}
               style={{ top: PADDING + i * cellSize }}
             />
-          ))}
-        </div>
-
-        {/* Quadrant Labels - positioned in corners of each quadrant */}
-        {quadrantLabels.map((ql) => {
-          const styles = getQuadrantStyles(ql.q);
-          return (
-            <div
-              key={ql.q}
-              className={`absolute ${styles.bg} ${styles.text} ${ql.style} text-[10px] font-semibold p-2 rounded-lg border ${styles.border} opacity-90 pointer-events-none z-20 max-w-[45%] leading-tight`}
-            >
-              <div>{ql.label}</div>
-              <div className="opacity-75">{ql.sublabel}</div>
-            </div>
-          );
-        })}
-
-        {/* Y-axis label (left) */}
-        <div className="absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
-          {axes.yLabel}
-        </div>
-
-        {/* Y-axis opposite label (right) */}
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 rotate-90 text-xs font-semibold text-slate-500 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
-          {axes.yBottom}
-        </div>
-
-        {/* X-axis label (bottom center) */}
-        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30">
-          {axes.xLabel}
-        </div>
-
-        {/* X-axis opposite label (top center) */}
-        <div className="absolute top-1 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-500 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30">
-          {axes.xLeft}
-        </div>
-
-        {/* X-axis numbers (bottom) */}
-        <div 
-          className="absolute flex justify-between pointer-events-none z-30"
-          style={{ 
-            left: PADDING, 
-            right: PADDING, 
-            bottom: "2px",
-          }}
-        >
-          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
-            <span key={i} className="text-[9px] text-slate-400 font-medium w-0 text-center">
-              {i}
-            </span>
-          ))}
-        </div>
-
-        {/* Y-axis numbers (left side) */}
-        <div className="absolute top-0 bottom-0 left-0 flex flex-col justify-between pointer-events-none z-30" style={{ paddingTop: PADDING, paddingBottom: PADDING }}>
-          {Array.from({ length: GRID_SIZE + 1 }).reverse().map((_, i) => (
-            <span key={i} className="text-[9px] text-slate-400 font-medium absolute left-[2px]" style={{ top: i * cellSize }}>
-              {i}
-            </span>
           ))}
         </div>
 
@@ -329,6 +243,93 @@ const QuadrantChart = ({
             </div>
           );
         })}
+
+        {/* Y-axis label (left side) */}
+        <div 
+          className="absolute text-center pointer-events-none z-30"
+          style={{ 
+            left: "8px", 
+            top: "50%", 
+            transform: "translateY(-50%) rotate(-90deg)",
+            width: "40px"
+          }}
+        >
+          <span className="text-xs font-semibold text-slate-600 bg-white/95 px-2 py-1 rounded-full shadow-sm block truncate">
+            {axes.yLabel}
+          </span>
+        </div>
+
+        {/* Y-axis opposite label (right side) */}
+        <div 
+          className="absolute text-center pointer-events-none z-30"
+          style={{ 
+            right: "8px", 
+            top: "50%", 
+            transform: "translateY(-50%) rotate(90deg)",
+            width: "40px"
+          }}
+        >
+          <span className="text-xs font-medium text-slate-500 bg-white/95 px-2 py-1 rounded-full shadow-sm block truncate">
+            {axes.yBottom}
+          </span>
+        </div>
+
+        {/* X-axis label (bottom) */}
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-600 bg-white/95 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
+          {axes.xLabel}
+        </div>
+
+        {/* X-axis opposite label (top) */}
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-medium text-slate-500 bg-white/95 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
+          {axes.xLeft}
+        </div>
+
+        {/* X-axis numbers - positioned ABOVE the bottom label */}
+        <div 
+          className="absolute flex justify-between pointer-events-none z-30"
+          style={{ 
+            left: PADDING, 
+            right: PADDING, 
+            bottom: "44px",
+            paddingLeft: "2px",
+            paddingRight: "2px",
+          }}
+        >
+          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
+            <span 
+              key={i} 
+              className="text-[9px] text-slate-400 font-medium w-0 text-center"
+              style={{ marginLeft: i === 0 ? "0" : "0", marginRight: i === GRID_SIZE ? "0" : "0" }}
+            >
+              {i}
+            </span>
+          ))}
+        </div>
+
+        {/* Y-axis numbers - positioned OUTSIDE (to the left of left label) */}
+        <div 
+          className="absolute top-0 bottom-0 left-0 flex flex-col justify-between pointer-events-none z-30" 
+          style={{ 
+            left: "50px",
+            paddingTop: PADDING + "px", 
+            paddingBottom: PADDING + "px",
+          }}
+        >
+          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
+            <span 
+              key={i} 
+              className="text-[9px] text-slate-400 font-medium"
+              style={{ 
+                position: "absolute", 
+                left: "0",
+                top: `${i * cellSize}px`,
+                transform: "translateY(-50%)"
+              }}
+            >
+              {GRID_SIZE - i}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Instructions */}

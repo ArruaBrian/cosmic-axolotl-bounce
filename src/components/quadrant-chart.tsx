@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 import {
   Dialog,
@@ -68,6 +68,7 @@ const QuadrantChart = ({
   onRenamePoint,
 }: QuadrantChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const bubbleRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
   const [dragging, setDragging] = useState<string | null>(null);
   const [draggedDistance, setDraggedDistance] = useState(0);
@@ -76,6 +77,7 @@ const QuadrantChart = ({
   const [editingPoint, setEditingPoint] = useState<DataPoint | null>(null);
   const [editValue, setEditValue] = useState("");
   const [measuredBubbles, setMeasuredBubbles] = useState<Map<string, { width: number; height: number }>>(new Map());
+  const [isMeasuring, setIsMeasuring] = useState(false);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -90,6 +92,28 @@ const QuadrantChart = ({
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
+
+  // Measure bubbles after render
+  useEffect(() => {
+    if (isMeasuring) return;
+    
+    const timer = setTimeout(() => {
+      setIsMeasuring(true);
+      const newMeasurements = new Map<string, { width: number; height: number }>();
+      
+      bubbleRefs.current.forEach((element, id) => {
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          newMeasurements.set(id, { width: rect.width, height: rect.height });
+        }
+      });
+      
+      setMeasuredBubbles(newMeasurements);
+      setIsMeasuring(false);
+    }, 50);
+    
+    return () => clearTimeout(timer);
+  }, [points, isMeasuring]);
 
   const graphSize = dimensions.width - PADDING * 2;
   const cellSize = graphSize / GRID_SIZE;
@@ -228,7 +252,7 @@ const QuadrantChart = ({
   ];
 
   // Calculate stacking offsets based on bubble sizes
-  const calculateStackOffsets = (groupPoints: DataPoint[]): { x: number; y: number }[] => {
+  const calculateStackOffsets = useCallback((groupPoints: DataPoint[]): { x: number; y: number }[] => {
     if (groupPoints.length <= 1) {
       return groupPoints.map(() => ({ x: 0, y: 0 }));
     }
@@ -254,7 +278,6 @@ const QuadrantChart = ({
       if (index === 0) {
         offsets.push({ x: 0, y: 0 });
       } else {
-        // Check if current bubble would overlap with previous ones
         let wouldOverlap = true;
         let attempt = 0;
         const maxAttempts = 20;
@@ -276,7 +299,6 @@ const QuadrantChart = ({
             const currTop = currentY - bubble.height / 2;
             const currBottom = currentY + bubble.height / 2;
             
-            // Check overlap
             if (!(currRight < prevLeft || currLeft > prevRight || currBottom < prevTop || currTop > prevBottom)) {
               wouldOverlap = true;
               break;
@@ -284,13 +306,10 @@ const QuadrantChart = ({
           }
 
           if (wouldOverlap) {
-            // Try different positions: below, to the side, etc.
             if (attempt % 2 === 0) {
-              // Stack vertically
               currentY += Math.max(measured.slice(0, index).reduce((max, b) => Math.max(max, b.height), 0) + spacing, bubble.height + spacing);
               currentX = 0;
             } else {
-              // Offset horizontally
               currentX += (bubble.width / 2 + spacing);
               if (currentX > 60) {
                 currentX = -60;
@@ -312,7 +331,15 @@ const QuadrantChart = ({
     });
 
     return originalOrderOffsets;
-  };
+  }, [measuredBubbles]);
+
+  const setBubbleRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
+    if (el) {
+      bubbleRefs.current.set(id, el);
+    } else {
+      bubbleRefs.current.delete(id);
+    }
+  }, []);
 
   return (
     <div className="w-full" ref={containerRef}>
@@ -348,9 +375,8 @@ const QuadrantChart = ({
           })}
         </div>
 
-        {/* Grid lines - center lines are thicker */}
+        {/* Grid lines */}
         <div className="absolute inset-0 pointer-events-none">
-          {/* Vertical grid lines */}
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
             <div
               key={`v-${i}`}
@@ -358,7 +384,6 @@ const QuadrantChart = ({
               style={{ left: PADDING + i * cellSize }}
             />
           ))}
-          {/* Horizontal grid lines */}
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
             <div
               key={`h-${i}`}
@@ -368,7 +393,7 @@ const QuadrantChart = ({
           ))}
         </div>
 
-        {/* Quadrant Labels - positioned in corners of each quadrant */}
+        {/* Quadrant Labels */}
         {quadrantLabels.map((ql) => {
           const styles = getQuadrantStyles(ql.q);
           return (
@@ -484,16 +509,7 @@ const QuadrantChart = ({
                         onMouseDown={(e) => handleMouseDown(e, point.id)}
                         onClick={(e) => handleClick(e, point)}
                         title={point.name}
-                        ref={(el) => {
-                          if (el) {
-                            const rect = el.getBoundingClientRect();
-                            setMeasuredBubbles(prev => {
-                              const newMap = new Map(prev);
-                              newMap.set(point.id, { width: rect.width, height: rect.height });
-                              return newMap;
-                            });
-                          }
-                        }}
+                        ref={setBubbleRef(point.id)}
                       >
                         <span className="text-xs font-semibold text-white drop-shadow-sm whitespace-nowrap">
                           {point.name}

@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Check } from "lucide-react";
+import { X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface DataPoint {
   id: string;
@@ -47,19 +56,12 @@ const QuadrantChart = ({
   onRenamePoint,
 }: QuadrantChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
   const [dragging, setDragging] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingPoint, setEditingPoint] = useState<DataPoint | null>(null);
   const [editValue, setEditValue] = useState("");
-
-  useEffect(() => {
-    if (editingId && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [editingId]);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -115,7 +117,6 @@ const QuadrantChart = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent, id: string) => {
-    if (editingId === id) return;
     e.preventDefault();
     e.stopPropagation();
     setDragging(id);
@@ -139,26 +140,25 @@ const QuadrantChart = ({
     setDragging(null);
   };
 
-  const handleStartEdit = (e: React.MouseEvent, point: DataPoint) => {
+  const handleOpenEditDialog = (e: React.MouseEvent, point: DataPoint) => {
     e.stopPropagation();
-    setEditingId(point.id);
+    setEditingPoint(point);
     setEditValue(point.name);
+    setEditDialogOpen(true);
   };
 
-  const handleSaveEdit = (id: string) => {
-    if (editValue.trim()) {
-      onRenamePoint(id, editValue.trim());
+  const handleSaveEdit = () => {
+    if (editingPoint && editValue.trim()) {
+      onRenamePoint(editingPoint.id, editValue.trim());
     }
-    setEditingId(null);
+    setEditDialogOpen(false);
+    setEditingPoint(null);
     setEditValue("");
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, id: string) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      handleSaveEdit(id);
-    } else if (e.key === "Escape") {
-      setEditingId(null);
-      setEditValue("");
+      handleSaveEdit();
     }
   };
 
@@ -341,7 +341,6 @@ const QuadrantChart = ({
           const pos = getGridPosition(point.x, point.y);
           const isHovered = hovered === point.id;
           const isDragging = dragging === point.id;
-          const isEditing = editingId === point.id;
           const dynamicColor = QUADRANT_COLORS[point.quadrant];
           
           return (
@@ -359,38 +358,12 @@ const QuadrantChart = ({
                 onMouseDown={(e) => handleMouseDown(e, point.id)}
                 onMouseEnter={() => setHovered(point.id)}
                 onMouseLeave={() => setHovered(null)}
-                onClick={(e) => handleStartEdit(e, point)}
+                onClick={(e) => handleOpenEditDialog(e, point)}
               >
-                {isEditing ? (
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={() => handleSaveEdit(point.id)}
-                    onKeyDown={(e) => handleKeyDown(e, point.id)}
-                    className="w-full h-full bg-transparent text-center text-xs font-bold text-white outline-none"
-                    style={{ width: "28px", fontSize: "10px" }}
-                  />
-                ) : (
-                  <span className="text-xs font-bold text-white drop-shadow-sm">
-                    {point.name.substring(0, 2).toUpperCase()}
-                  </span>
-                )}
+                <span className="text-xs font-bold text-white drop-shadow-sm pointer-events-none">
+                  {point.name.substring(0, 2).toUpperCase()}
+                </span>
               </div>
-              
-              {/* Save button when editing */}
-              {isEditing && (
-                <button
-                  className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-emerald-600 z-50"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSaveEdit(point.id);
-                  }}
-                >
-                  <Check className="w-3 h-3" />
-                </button>
-              )}
               
               {/* Tooltip */}
               <div 
@@ -418,9 +391,36 @@ const QuadrantChart = ({
         })}
       </div>
 
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar elemento</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <label className="text-sm font-medium mb-2 block">Nombre del elemento</label>
+            <Input
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ingresa el nuevo nombre"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Instructions */}
       <p className="text-center text-[10px] text-slate-400 mt-2">
-        ✨ Haz clic en un punto para editar su nombre
+        ✨ Haz clic en un punto para editarlo
       </p>
     </div>
   );

@@ -63,6 +63,8 @@ const QUADRANT_COLORS = {
   "bottom-right": "bg-violet-400",
 };
 
+const MAX_CONTEXT_MESSAGES = 10;
+
 const Index = () => {
   const [points, setPoints] = useState<DataPoint[]>([
     { id: "1", name: "Ing. Petróleo", x: 3, y: 8, color: QUADRANT_COLORS["top-left"], quadrant: "top-left" },
@@ -204,6 +206,12 @@ Si no hay sugerencias de items, envía un array vacío en "suggestions".
 No incluyas ningún otro texto besides el JSON.`;
   };
 
+  const getLastMessages = (): ChatMessage[] => {
+    // Skip the welcome message, get the last MAX_CONTEXT_MESSAGES
+    const messagesWithoutWelcome = chatMessages.filter(msg => msg.id !== "welcome");
+    return messagesWithoutWelcome.slice(-MAX_CONTEXT_MESSAGES);
+  };
+
   const handleSendChat = async () => {
     if (!chatInput.trim()) return;
     if (!apiKey.trim()) {
@@ -223,6 +231,16 @@ No incluyas ningún otro texto besides el JSON.`;
     setIsLoading(true);
 
     try {
+      // Get last 10 messages for context
+      const lastMessages = getLastMessages();
+      
+      // Build conversation history
+      const conversationHistory = lastMessages.map(msg => ({
+        role: msg.role as "user" | "assistant",
+        name: msg.role === "user" ? "User" : "MiniMax AI",
+        content: msg.content,
+      }));
+
       const response = await fetch("https://api.minimax.io/v1/text/chatcompletion_v2", {
         method: "POST",
         headers: {
@@ -237,6 +255,7 @@ No incluyas ningún otro texto besides el JSON.`;
               name: "MiniMax AI",
               content: buildSystemPrompt(),
             },
+            ...conversationHistory,
             {
               role: "user",
               name: "User",

@@ -118,7 +118,7 @@ const QuadrantChart = ({
   // Calculate offset for side-by-side display
   const getSideBySideOffset = (index: number, total: number) => {
     if (total <= 1) return { x: 0, y: 0 };
-    const spacing = 12;
+    const spacing = 20;
     const offset = (index - (total - 1) / 2) * spacing;
     return { x: offset, y: 0 };
   };
@@ -393,12 +393,13 @@ const QuadrantChart = ({
                       onMouseLeave={() => setHovered(null)}
                     >
                       <div
-                        className={`${primaryColor} w-9 h-9 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-all hover:scale-110 hover:z-10 ${dragging === point.id ? 'scale-110 z-20' : ''}`}
+                        className={`${primaryColor} min-w-[48px] px-2 py-1.5 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-all hover:scale-105 hover:z-10 ${dragging === point.id ? 'scale-110 z-20' : ''}`}
                         onMouseDown={(e) => handleMouseDown(e, point.id)}
                         onClick={(e) => handleClick(e, point)}
+                        title={point.name}
                       >
-                        <span className="text-xs font-bold text-white drop-shadow-sm pointer-events-none">
-                          {point.name.substring(0, 2).toUpperCase()}
+                        <span className="text-xs font-semibold text-white drop-shadow-sm whitespace-nowrap max-w-[80px] overflow-hidden text-ellipsis">
+                          {point.name}
                         </span>
                       </div>
                       

@@ -29,6 +29,7 @@ interface QuadrantChartProps {
 }
 
 const GRID_SIZE = 10;
+const PADDING = 50;
 
 const QuadrantChart = ({
   points,
@@ -40,11 +41,6 @@ const QuadrantChart = ({
   const [dimensions, setDimensions] = useState({ width: 400, height: 400 });
   const [dragging, setDragging] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
-
-  const PADDING_LEFT = 70;
-  const PADDING_BOTTOM = 50;
-  const PADDING_TOP = 30;
-  const PADDING_RIGHT = 30;
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -60,14 +56,13 @@ const QuadrantChart = ({
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  const gridWidth = dimensions.width - PADDING_LEFT - PADDING_RIGHT;
-  const gridHeight = dimensions.height - PADDING_TOP - PADDING_BOTTOM;
-  const cellSize = gridWidth / GRID_SIZE;
+  const graphSize = dimensions.width - PADDING * 2;
+  const cellSize = graphSize / GRID_SIZE;
 
   const getGridPosition = (x: number, y: number) => {
     return {
-      left: PADDING_LEFT + x * cellSize,
-      top: PADDING_TOP + (GRID_SIZE - y) * cellSize,
+      left: PADDING + x * cellSize,
+      top: PADDING + (GRID_SIZE - y) * cellSize,
     };
   };
 
@@ -78,8 +73,8 @@ const QuadrantChart = ({
     const mouseX = clientX - rect.left;
     const mouseY = clientY - rect.top;
 
-    const relativeX = mouseX - PADDING_LEFT;
-    const relativeY = mouseY - PADDING_TOP;
+    const relativeX = mouseX - PADDING;
+    const relativeY = mouseY - PADDING;
 
     const gridX = Math.round(relativeX / cellSize);
     const gridY = GRID_SIZE - Math.round(relativeY / cellSize);
@@ -132,23 +127,46 @@ const QuadrantChart = ({
     }
   };
 
+  const quadrantLabels = [
+    { 
+      q: "top-left", 
+      label: axes.yTop,
+      sublabel: axes.xLeft,
+      style: "text-left top-[15px] left-[15px]"
+    },
+    { 
+      q: "top-right", 
+      label: axes.yTop,
+      sublabel: axes.xRight,
+      style: "text-right top-[15px] right-[15px]"
+    },
+    { 
+      q: "bottom-left", 
+      label: axes.yBottom,
+      sublabel: axes.xLeft,
+      style: "text-left bottom-[15px] left-[15px]"
+    },
+    { 
+      q: "bottom-right", 
+      label: axes.yBottom,
+      sublabel: axes.xRight,
+      style: "text-right bottom-[15px] right-[15px]"
+    },
+  ];
+
   return (
     <div className="w-full" ref={containerRef}>
       <div
         className="relative w-full bg-white rounded-xl border-2 border-slate-200 overflow-hidden select-none"
-        style={{ height: dimensions.height }}
+        style={{ height: dimensions.width }}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        {/* Grid Background - only inside the grid area */}
+        {/* 10x10 Grid Background */}
         <div 
-          className="absolute grid"
+          className="absolute inset-0 grid"
           style={{ 
-            width: gridWidth,
-            height: gridHeight,
-            left: PADDING_LEFT,
-            top: PADDING_TOP,
             gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
             gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
           }}
@@ -164,129 +182,103 @@ const QuadrantChart = ({
             return (
               <div
                 key={i}
-                className={`border border-slate-200/30 ${styles.bg}`}
+                className={`border border-slate-200/30 ${styles.bg} transition-opacity`}
               />
             );
           })}
         </div>
 
-        {/* Grid lines */}
-        <div className="absolute pointer-events-none" style={{
-          left: PADDING_LEFT,
-          top: PADDING_TOP,
-          width: gridWidth,
-          height: gridHeight,
-        }}>
+        {/* Grid lines - center lines are thicker */}
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Vertical grid lines */}
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
             <div
               key={`v-${i}`}
-              className={`absolute top-0 bottom-0 ${i === 5 ? "bg-slate-500/70 w-0.5" : "bg-slate-300/50 w-px"}`}
-              style={{ left: i * cellSize }}
+              className={`absolute top-0 bottom-0 ${i === 5 ? "bg-slate-400/60 w-0.5" : "bg-slate-300/40 w-px"}`}
+              style={{ left: PADDING + i * cellSize }}
             />
           ))}
+          {/* Horizontal grid lines */}
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
             <div
               key={`h-${i}`}
-              className={`absolute left-0 right-0 ${i === 5 ? "bg-slate-500/70 h-0.5" : "bg-slate-300/50 h-px"}`}
-              style={{ top: i * cellSize }}
+              className={`absolute left-0 right-0 ${i === 5 ? "bg-slate-400/60 h-0.5" : "bg-slate-300/40 h-px"}`}
+              style={{ top: PADDING + i * cellSize }}
             />
           ))}
-          {/* Border */}
-          <div className="absolute inset-0 border-2 border-slate-400" />
         </div>
 
-        {/* Y-axis label (left side, outside) */}
-        <div 
-          className="absolute text-xs font-semibold text-slate-700 bg-white/95 px-2 py-1 rounded shadow-sm z-30 whitespace-nowrap"
-          style={{ 
-            left: 2,
-            top: "50%",
-            transform: "translateY(-50%) rotate(-90deg)",
-            transformOrigin: "left center",
-          }}
-        >
+        {/* Quadrant Labels - positioned in corners of each quadrant */}
+        {quadrantLabels.map((ql) => {
+          const styles = getQuadrantStyles(ql.q);
+          return (
+            <div
+              key={ql.q}
+              className={`absolute ${styles.bg} ${styles.text} ${ql.style} text-[10px] font-semibold p-2 rounded-lg border ${styles.border} opacity-90 pointer-events-none z-20 max-w-[45%] leading-tight`}
+            >
+              <div>{ql.label}</div>
+              <div className="opacity-75">{ql.sublabel}</div>
+            </div>
+          );
+        })}
+
+        {/* Y-axis label (left) */}
+        <div className="absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
           {axes.yLabel}
         </div>
 
-        {/* Y-axis opposite (right side, outside) */}
-        <div 
-          className="absolute text-xs font-semibold text-slate-500 bg-white/95 px-2 py-1 rounded shadow-sm z-30 whitespace-nowrap"
-          style={{ 
-            right: 2,
-            top: "50%",
-            transform: "translateY(-50%) rotate(90deg)",
-            transformOrigin: "right center",
-          }}
-        >
+        {/* Y-axis opposite label (right) */}
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 rotate-90 text-xs font-semibold text-slate-500 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
           {axes.yBottom}
         </div>
 
-        {/* X-axis label (bottom, outside) */}
-        <div 
-          className="absolute text-xs font-semibold text-slate-700 bg-white/95 px-2 py-1 rounded shadow-sm z-30"
-          style={{ 
-            bottom: 4,
-            left: "50%",
-            transform: "translateX(-50%)",
-          }}
-        >
+        {/* X-axis label (bottom center) */}
+        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30">
           {axes.xLabel}
         </div>
 
-        {/* X-axis opposite (top, outside) */}
-        <div 
-          className="absolute text-xs font-semibold text-slate-500 bg-white/95 px-2 py-1 rounded shadow-sm z-30"
-          style={{ 
-            top: 4,
-            left: "50%",
-            transform: "translateX(-50%)",
-          }}
-        >
+        {/* X-axis opposite label (top center) */}
+        <div className="absolute top-1 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-500 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30">
           {axes.xLeft}
         </div>
 
         {/* X-axis numbers (bottom) */}
         <div 
-          className="absolute flex justify-between pointer-events-none z-20"
+          className="absolute flex justify-between pointer-events-none z-30"
           style={{ 
-            left: PADDING_LEFT,
-            right: PADDING_RIGHT,
-            bottom: 18,
-            width: gridWidth,
+            left: PADDING, 
+            right: PADDING, 
+            bottom: "2px",
           }}
         >
           {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
-            <span 
-              key={i} 
-              className="text-[9px] text-slate-400 font-medium text-center"
-              style={{ width: cellSize }}
-            >
+            <span key={i} className="text-[9px] text-slate-400 font-medium w-0 text-center">
               {i}
             </span>
           ))}
         </div>
 
         {/* Y-axis numbers (left side) */}
-        <div 
-          className="absolute flex flex-col justify-between pointer-events-none z-20"
-          style={{ 
-            top: PADDING_TOP,
-            bottom: PADDING_BOTTOM,
-            left: 8,
-            height: gridHeight,
-          }}
-        >
-          {Array.from({ length: GRID_SIZE + 1 }).map((_, i) => (
-            <span 
-              key={i} 
-              className="text-[9px] text-slate-400 font-medium"
-            >
-              {GRID_SIZE - i}
+        <div className="absolute top-0 bottom-0 left-0 flex flex-col justify-between pointer-events-none z-30" style={{ paddingTop: PADDING, paddingBottom: PADDING }}>
+          {Array.from({ length: GRID_SIZE + 1 }).reverse().map((_, i) => (
+            <span key={i} className="text-[9px] text-slate-400 font-medium absolute left-[2px]" style={{ top: i * cellSize }}>
+              {i}
             </span>
           ))}
         </div>
 
-        {/* Data Points */}
+        {/* Border frame */}
+        <div 
+          className="absolute border-2 border-slate-400 pointer-events-none z-10"
+          style={{
+            top: PADDING,
+            left: PADDING,
+            width: graphSize,
+            height: graphSize,
+          }}
+        />
+
+        {/* Data Points - snap to grid intersections */}
         {points.map((point) => {
           const pos = getGridPosition(point.x, point.y);
           const isHovered = hovered === point.id;
@@ -339,6 +331,7 @@ const QuadrantChart = ({
         })}
       </div>
 
+      {/* Instructions */}
       <p className="text-center text-[10px] text-slate-400 mt-2">
         ✨ Arrastra los puntos para posicionarlos
       </p>

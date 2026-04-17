@@ -216,7 +216,7 @@ No incluyas ningún otro texto besides el JSON.`;
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "M2.7",
+          model: "M2-her",
           messages: [
             {
               role: "system",
@@ -233,8 +233,8 @@ No incluyas ningún otro texto besides el JSON.`;
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`MiniMax API error: ${response.status} - ${errorData}`);
+        const errorText = await response.text();
+        throw new Error(`MiniMax API error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();

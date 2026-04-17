@@ -216,7 +216,7 @@ No incluyas ningún otro texto besides el JSON.`;
           "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "M2-her",
+          model: "minimax-m2.7",
           messages: [
             {
               role: "system",

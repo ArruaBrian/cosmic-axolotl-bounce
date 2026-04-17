@@ -166,6 +166,44 @@ const Index = () => {
     showSuccess("Nombre actualizado");
   };
 
+  const buildSystemPrompt = () => {
+    // Dynamic quadrant descriptions based on user's axis configuration
+    const quadrantDescriptions = {
+      "top-left": `${axes.yTop} pero ${axes.xLeft}`,
+      "top-right": `${axes.yTop} y ${axes.xRight}`,
+      "bottom-left": `${axes.yBottom} y ${axes.xLeft}`,
+      "bottom-right": `${axes.yBottom} pero ${axes.xRight}`,
+    };
+
+    return `Eres un asistente que ayuda a clasificar elementos en un gráfico de 4 cuadrantes.
+
+El usuario ha configurado su gráfico con los siguientes ejes:
+- Eje X: ${axes.xLabel} (0=${axes.xLeft}, 10=${axes.xRight})
+- Eje Y: ${axes.yLabel} (0=${axes.yBottom}, 10=${axes.yTop})
+
+El centro del gráfico está en (5,5).
+
+Items existentes en el gráfico: ${points.map(p => `${p.name} (x:${p.x}, y:${p.y})`).join(", ") || "Ninguno"}
+
+Cuadrantes del gráfico:
+- Arriba-izquierda (x<5, y>5): ${quadrantDescriptions["top-left"]}
+- Arriba-derecha (x>5, y>5): ${quadrantDescriptions["top-right"]}
+- Abajo-izquierda (x<5, y<5): ${quadrantDescriptions["bottom-left"]}
+- Abajo-derecha (x>5, y<5): ${quadrantDescriptions["bottom-right"]}
+
+Responde de manera amigable y útil. Si el usuario quiere clasificar algo, sugiere dónde colocarlo basándote en el contexto de sus ejes. Explica tu razonamiento.
+
+Responde SOLO en formato JSON con este esquema:
+{
+  "response": "tu respuesta en texto plano al usuario",
+  "suggestions": [
+    {"name": "nombre del item", "x": 0-10, "y": 0-10, "reasoning": "breve explicación"}
+  ]
+}
+Si no hay sugerencias de items, envía un array vacío en "suggestions".
+No incluyas ningún otro texto besides el JSON.`;
+  };
+
   const handleSendChat = async () => {
     if (!chatInput.trim()) return;
     if (!apiKey.trim()) {
@@ -185,30 +223,6 @@ const Index = () => {
     setIsLoading(true);
 
     try {
-      const systemPrompt = `Eres un asistente que ayuda a clasificar elementos en un gráfico de 4 cuadrantes.
-
-Eje X: ${axes.xLabel} (0=${axes.xLeft}, 10=${axes.xRight})
-Eje Y: ${axes.yLabel} (0=${axes.yBottom}, 10=${axes.yTop})
-
-Items existentes en el gráfico: ${points.map(p => `${p.name} (x:${p.x}, y:${p.y})`).join(", ") || "Ninguno"}
-
-Cuadrantes:
-- Arriba-izquierda: ${axes.yTop} pero ${axes.xLeft}
-- Arriba-derecha: ${axes.yTop} y ${axes.xRight}
-- Abajo-izquierda: ${axes.yBottom} y ${axes.xLeft}
-- Abajo-derecha: ${axes.yBottom} pero ${axes.xRight}
-
-Responde de manera amigable y útil. Si el usuario quiere clasificar algo, sugiere dónde colocarlo y explica por qué.
-Responde SOLO en formato JSON con este esquema:
-{
-  "response": "tu respuesta en texto plano al usuario",
-  "suggestions": [
-    {"name": "nombre del item", "x": 0-10, "y": 0-10, "reasoning": "breve explicación"}
-  ]
-}
-Si no hay sugerencias de items, envía un array vacío en "suggestions".
-No incluyas ningún otro texto besides el JSON.`;
-
       const response = await fetch("https://api.minimax.io/v1/text/chatcompletion_v2", {
         method: "POST",
         headers: {
@@ -221,7 +235,7 @@ No incluyas ningún otro texto besides el JSON.`;
             {
               role: "system",
               name: "MiniMax AI",
-              content: systemPrompt,
+              content: buildSystemPrompt(),
             },
             {
               role: "user",
@@ -348,23 +362,23 @@ No incluyas ningún otro texto besides el JSON.`;
             <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-rose-100 border border-rose-200 rounded-xl p-3 text-center">
                 <div className="w-3 h-3 bg-rose-400 rounded-full mx-auto mb-1" />
-                <p className="text-xs font-medium text-rose-800">Alto ingreso</p>
-                <p className="text-xs text-rose-600">Bajo divert.</p>
+                <p className="text-xs font-medium text-rose-800">Alto {axes.yLabel}</p>
+                <p className="text-xs text-rose-600">Bajo {axes.xLabel}</p>
               </div>
               <div className="bg-blue-100 border border-blue-200 rounded-xl p-3 text-center">
                 <div className="w-3 h-3 bg-blue-400 rounded-full mx-auto mb-1" />
-                <p className="text-xs font-medium text-blue-800">Alto ingreso</p>
-                <p className="text-xs text-blue-600">Alto divert.</p>
+                <p className="text-xs font-medium text-blue-800">Alto {axes.yLabel}</p>
+                <p className="text-xs text-blue-600">Alto {axes.xLabel}</p>
               </div>
               <div className="bg-green-100 border border-green-200 rounded-xl p-3 text-center">
                 <div className="w-3 h-3 bg-green-400 rounded-full mx-auto mb-1" />
-                <p className="text-xs font-medium text-green-800">Bajo ingreso</p>
-                <p className="text-xs text-green-600">Bajo divert.</p>
+                <p className="text-xs font-medium text-green-800">Bajo {axes.yLabel}</p>
+                <p className="text-xs text-green-600">Bajo {axes.xLabel}</p>
               </div>
               <div className="bg-violet-100 border border-violet-200 rounded-xl p-3 text-center">
                 <div className="w-3 h-3 bg-violet-400 rounded-full mx-auto mb-1" />
-                <p className="text-xs font-medium text-violet-800">Bajo ingreso</p>
-                <p className="text-xs text-violet-600">Alto divert.</p>
+                <p className="text-xs font-medium text-violet-800">Bajo {axes.yLabel}</p>
+                <p className="text-xs text-violet-600">Alto {axes.xLabel}</p>
               </div>
             </div>
           </div>

@@ -219,13 +219,9 @@ const QuadrantChart = ({
     },
   ];
 
-  // Card deck stacking pattern: each card offset by 4px down and 3px right
-  const CARD_OFFSET_X = 3;
-  const CARD_OFFSET_Y = 4;
-
-  const setBubbleRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
-    // No longer needed but keeping for compatibility
-  }, []);
+  // Card deck stacking pattern: each card offset significantly so you can see them all
+  const CARD_OFFSET_X = 12;
+  const CARD_OFFSET_Y = 8;
 
   return (
     <div className="w-full" ref={containerRef}>
@@ -357,7 +353,7 @@ const QuadrantChart = ({
           }}
         />
 
-        {/* Data Points - Card deck stacking */}
+        {/* Data Points - Card deck stacking with larger offset */}
         {groupedPoints.map((group) => {
           const pos = getGridPosition(group.x, group.y);
           
@@ -376,7 +372,7 @@ const QuadrantChart = ({
                   const primaryColor = QUADRANT_COLORS[point.quadrant];
                   const isPointHovered = hovered === point.id;
                   
-                  // Card deck offset: each card slightly offset from the one above
+                  // Card deck offset: each card offset to the right and down
                   const offsetX = idx * CARD_OFFSET_X;
                   const offsetY = idx * CARD_OFFSET_Y;
                   
@@ -388,7 +384,6 @@ const QuadrantChart = ({
                         left: `${offsetX}px`,
                         top: `${offsetY}px`,
                         transform: "translate(-50%, -50%)",
-                        zIndex: idx, // First card is on bottom, last is on top
                       }}
                       onMouseEnter={() => setHovered(point.id)}
                       onMouseLeave={() => setHovered(null)}
@@ -396,7 +391,7 @@ const QuadrantChart = ({
                       <div
                         className={`${primaryColor} min-w-[48px] px-2 py-1.5 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-all hover:scale-105 ${dragging === point.id ? 'scale-110' : ''}`}
                         style={{
-                          zIndex: 100 + idx, // Keep hover order correct
+                          zIndex: 100 + idx,
                         }}
                         onMouseDown={(e) => handleMouseDown(e, point.id)}
                         onClick={(e) => handleClick(e, point)}

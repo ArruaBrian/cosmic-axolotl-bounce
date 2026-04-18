@@ -54,12 +54,6 @@ interface PointGroup {
   points: DataPoint[];
 }
 
-interface MeasuredBubble {
-  point: DataPoint;
-  width: number;
-  height: number;
-}
-
 const QuadrantChart = ({
   points,
   axes,
@@ -68,7 +62,6 @@ const QuadrantChart = ({
   onRenamePoint,
 }: QuadrantChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const bubbleRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [containerWidth, setContainerWidth] = useState(400);
   const [dragging, setDragging] = useState<string | null>(null);
   const [draggedDistance, setDraggedDistance] = useState(0);
@@ -76,8 +69,6 @@ const QuadrantChart = ({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPoint, setEditingPoint] = useState<DataPoint | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [measuredBubbles, setMeasuredBubbles] = useState<Map<string, { width: number; height: number }>>(new Map());
-  const [isMeasuring, setIsMeasuring] = useState(false);
 
   useEffect(() => {
     const updateWidth = () => {
@@ -91,28 +82,6 @@ const QuadrantChart = ({
     window.addEventListener("resize", updateWidth);
     return () => window.removeEventListener("resize", updateWidth);
   }, []);
-
-  // Measure bubbles after render
-  useEffect(() => {
-    if (isMeasuring) return;
-    
-    const timer = setTimeout(() => {
-      setIsMeasuring(true);
-      const newMeasurements = new Map<string, { width: number; height: number }>();
-      
-      bubbleRefs.current.forEach((element, id) => {
-        if (element) {
-          const rect = element.getBoundingClientRect();
-          newMeasurements.set(id, { width: rect.width, height: rect.height });
-        }
-      });
-      
-      setMeasuredBubbles(newMeasurements);
-      setIsMeasuring(false);
-    }, 50);
-    
-    return () => clearTimeout(timer);
-  }, [points, isMeasuring]);
 
   const graphSize = containerWidth - PADDING * 2;
   const cellSize = graphSize / GRID_SIZE;
@@ -250,94 +219,12 @@ const QuadrantChart = ({
     },
   ];
 
-  // Calculate stacking offsets based on bubble sizes
-  const calculateStackOffsets = useCallback((groupPoints: DataPoint[]): { x: number; y: number }[] => {
-    if (groupPoints.length <= 1) {
-      return groupPoints.map(() => ({ x: 0, y: 0 }));
-    }
-
-    const measured: MeasuredBubble[] = groupPoints.map(point => {
-      const measuredSize = measuredBubbles.get(point.id);
-      return {
-        point,
-        width: measuredSize?.width || 80,
-        height: measuredSize?.height || 36,
-      };
-    });
-
-    // Sort by height (tallest first) for better stacking
-    measured.sort((a, b) => b.height - a.height);
-
-    const offsets: { x: number; y: number }[] = [];
-    let currentX = 0;
-    let currentY = 0;
-    const spacing = 4;
-
-    measured.forEach((bubble, index) => {
-      if (index === 0) {
-        offsets.push({ x: 0, y: 0 });
-      } else {
-        let wouldOverlap = true;
-        let attempt = 0;
-        const maxAttempts = 20;
-
-        while (wouldOverlap && attempt < maxAttempts) {
-          wouldOverlap = false;
-          
-          for (let i = 0; i < index; i++) {
-            const prevBubble = measured[i];
-            const prevOffset = offsets[i];
-            
-            const prevLeft = prevOffset.x - prevBubble.width / 2;
-            const prevRight = prevOffset.x + prevBubble.width / 2;
-            const prevTop = prevOffset.y - prevBubble.height / 2;
-            const prevBottom = prevOffset.y + prevBubble.height / 2;
-            
-            const currLeft = currentX - bubble.width / 2;
-            const currRight = currentX + bubble.width / 2;
-            const currTop = currentY - bubble.height / 2;
-            const currBottom = currentY + bubble.height / 2;
-            
-            if (!(currRight < prevLeft || currLeft > prevRight || currBottom < prevTop || currTop > prevBottom)) {
-              wouldOverlap = true;
-              break;
-            }
-          }
-
-          if (wouldOverlap) {
-            if (attempt % 2 === 0) {
-              currentY += Math.max(measured.slice(0, index).reduce((max, b) => Math.max(max, b.height), 0) + spacing, bubble.height + spacing);
-              currentX = 0;
-            } else {
-              currentX += (bubble.width / 2 + spacing);
-              if (currentX > 60) {
-                currentX = -60;
-              }
-            }
-            attempt++;
-          }
-        }
-
-        offsets.push({ x: currentX, y: currentY });
-      }
-    });
-
-    // Reorder offsets to match original point order
-    const originalOrderOffsets: { x: number; y: number }[] = [];
-    groupPoints.forEach(point => {
-      const measuredIndex = measured.findIndex(m => m.point.id === point.id);
-      originalOrderOffsets.push(offsets[measuredIndex]);
-    });
-
-    return originalOrderOffsets;
-  }, [measuredBubbles]);
+  // Card deck stacking pattern: each card offset by 4px down and 3px right
+  const CARD_OFFSET_X = 3;
+  const CARD_OFFSET_Y = 4;
 
   const setBubbleRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
-    if (el) {
-      bubbleRefs.current.set(id, el);
-    } else {
-      bubbleRefs.current.delete(id);
-    }
+    // No longer needed but keeping for compatibility
   }, []);
 
   return (
@@ -470,10 +357,9 @@ const QuadrantChart = ({
           }}
         />
 
-        {/* Data Points - Grouped by position with smart stacking */}
+        {/* Data Points - Card deck stacking */}
         {groupedPoints.map((group) => {
           const pos = getGridPosition(group.x, group.y);
-          const offsets = calculateStackOffsets(group.points);
           
           return (
             <div
@@ -487,55 +373,75 @@ const QuadrantChart = ({
             >
               <div className="relative">
                 {group.points.map((point, idx) => {
-                  const offset = offsets[idx];
                   const primaryColor = QUADRANT_COLORS[point.quadrant];
                   const isPointHovered = hovered === point.id;
+                  
+                  // Card deck offset: each card slightly offset from the one above
+                  const offsetX = idx * CARD_OFFSET_X;
+                  const offsetY = idx * CARD_OFFSET_Y;
                   
                   return (
                     <div
                       key={point.id}
                       className="absolute"
                       style={{
-                        left: `${offset.x}px`,
-                        top: `${offset.y}px`,
+                        left: `${offsetX}px`,
+                        top: `${offsetY}px`,
                         transform: "translate(-50%, -50%)",
+                        zIndex: idx, // First card is on bottom, last is on top
                       }}
                       onMouseEnter={() => setHovered(point.id)}
                       onMouseLeave={() => setHovered(null)}
                     >
                       <div
-                        className={`${primaryColor} min-w-[48px] px-2 py-1.5 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-all hover:scale-105 hover:z-10 ${dragging === point.id ? 'scale-110 z-20' : ''}`}
+                        className={`${primaryColor} min-w-[48px] px-2 py-1.5 rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-grab active:cursor-grabbing transition-all hover:scale-105 ${dragging === point.id ? 'scale-110' : ''}`}
+                        style={{
+                          zIndex: 100 + idx, // Keep hover order correct
+                        }}
                         onMouseDown={(e) => handleMouseDown(e, point.id)}
                         onClick={(e) => handleClick(e, point)}
                         title={point.name}
-                        ref={setBubbleRef(point.id)}
                       >
                         <span className="text-xs font-semibold text-white drop-shadow-sm whitespace-nowrap">
                           {point.name}
                         </span>
                       </div>
                       
-                      {/* Tooltip */}
-                      <div 
-                        className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 transition-opacity duration-150 pointer-events-none ${isPointHovered ? "opacity-100" : "opacity-0"}`}
-                      >
-                        <div className="bg-slate-800 text-white text-xs px-2 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
-                          <p className="font-semibold">{point.name}</p>
-                          <p className="text-slate-300 text-[10px]">x: {point.x}, y: {point.y}</p>
+                      {/* Show count badge for stacked cards when hovered */}
+                      {idx === group.points.length - 1 && group.points.length > 1 && isPointHovered && (
+                        <div className="absolute -top-2 -right-2 w-5 h-5 bg-slate-800 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg z-[200]">
+                          {group.points.length}
                         </div>
-                        <div className="w-2 h-2 bg-slate-800 rotate-45 mx-auto -mt-1" />
-                      </div>
+                      )}
+                      
+                      {/* Tooltip - only on top card when hovered */}
+                      {idx === group.points.length - 1 && (
+                        <div 
+                          className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 transition-opacity duration-150 pointer-events-none ${isPointHovered ? "opacity-100" : "opacity-0"}`}
+                        >
+                          <div className="bg-slate-800 text-white text-xs px-2 py-1.5 rounded-lg shadow-lg whitespace-nowrap">
+                            <p className="font-semibold">{point.name}</p>
+                            <p className="text-slate-300 text-[10px]">x: {point.x}, y: {point.y}</p>
+                            {group.points.length > 1 && (
+                              <p className="text-slate-400 text-[10px] mt-1">+{group.points.length - 1} más</p>
+                            )}
+                          </div>
+                          <div className="w-2 h-2 bg-slate-800 rotate-45 mx-auto -mt-1" />
+                        </div>
+                      )}
 
-                      {/* Delete button */}
-                      <button
-                        className={`absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity duration-150 hover:bg-red-600 ${isPointHovered ? "opacity-100" : "opacity-0"}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeletePoint(point.id);
-                        }}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                      {/* Delete button - only on top card */}
+                      {idx === group.points.length - 1 && (
+                        <button
+                          className={`absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity duration-150 hover:bg-red-600 z-[201] ${isPointHovered ? "opacity-100" : "opacity-0"}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeletePoint(point.id);
+                          }}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -574,7 +480,7 @@ const QuadrantChart = ({
 
       {/* Instructions */}
       <p className="text-center text-[10px] text-slate-400 mt-2">
-        ✨ Arrastra los puntos • {groupedPoints.length !== points.length ? `${points.length - groupedPoints.length} elementos superpuestos` : 'Sin superposición'}
+        ✨ Arrastra los puntos • {groupedPoints.length !== points.length ? `${points.length - groupedPoints.length} elementos apilados` : 'Sin superposición'}
       </p>
     </div>
   );

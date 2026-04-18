@@ -295,8 +295,9 @@ No incluyas ningún otro texto besides el JSON.`;
     try {
       const lastMessages = getLastMessages();
       
+      // FIX: Map "ai" role to "assistant" for MiniMax API compatibility
       const conversationHistory = lastMessages.map(msg => ({
-        role: msg.role as "user" | "assistant",
+        role: msg.role === "user" ? ("user" as const) : ("assistant" as const),
         name: msg.role === "user" ? "User" : "MiniMax AI",
         content: msg.content,
       }));
@@ -311,13 +312,13 @@ No incluyas ningún otro texto besides el JSON.`;
           model: "minimax-m2.7",
           messages: [
             {
-              role: "system",
+              role: "system" as const,
               name: "MiniMax AI",
               content: buildSystemPrompt(aiMode),
             },
             ...conversationHistory,
             {
-              role: "user",
+              role: "user" as const,
               name: "User",
               content: userMessage.content,
             },

@@ -294,19 +294,9 @@ const QuadrantChart = ({
           {axes.yLabel}
         </div>
 
-        {/* Y-axis opposite label (right) */}
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 rotate-90 text-xs font-semibold text-slate-500 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
-          {axes.yBottom}
-        </div>
-
         {/* X-axis label (bottom center) */}
         <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30">
           {axes.xLabel}
-        </div>
-
-        {/* X-axis opposite label (top center) */}
-        <div className="absolute top-1 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-500 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30">
-          {axes.xLeft}
         </div>
 
         {/* X-axis numbers (OUTSIDE - bottom) */}

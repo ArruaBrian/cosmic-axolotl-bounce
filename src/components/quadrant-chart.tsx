@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 import {
   Dialog,
@@ -192,7 +192,34 @@ const QuadrantChart = ({
     }
   };
 
-  // Card deck stacking pattern
+  const quadrantLabels = [
+    { 
+      q: "top-left", 
+      label: axes.yTop,
+      sublabel: axes.xLeft,
+      style: "text-left top-[15px] left-[15px]"
+    },
+    { 
+      q: "top-right", 
+      label: axes.yTop,
+      sublabel: axes.xRight,
+      style: "text-right top-[15px] right-[15px]"
+    },
+    { 
+      q: "bottom-left", 
+      label: axes.yBottom,
+      sublabel: axes.xLeft,
+      style: "text-left bottom-[15px] left-[15px]"
+    },
+    { 
+      q: "bottom-right", 
+      label: axes.yBottom,
+      sublabel: axes.xRight,
+      style: "text-right bottom-[15px] right-[15px]"
+    },
+  ];
+
+  // Card deck stacking pattern: each card offset significantly so you can see them all
   const CARD_OFFSET_X = 12;
   const CARD_OFFSET_Y = 8;
 
@@ -247,6 +274,20 @@ const QuadrantChart = ({
             />
           ))}
         </div>
+
+        {/* Quadrant Labels */}
+        {quadrantLabels.map((ql) => {
+          const styles = getQuadrantStyles(ql.q);
+          return (
+            <div
+              key={ql.q}
+              className={`absolute ${styles.bg} ${styles.text} ${ql.style} text-[10px] font-semibold p-2 rounded-lg border ${styles.border} opacity-90 pointer-events-none z-20 max-w-[45%] leading-tight`}
+            >
+              <div>{ql.label}</div>
+              <div className="opacity-75">{ql.sublabel}</div>
+            </div>
+          );
+        })}
 
         {/* Y-axis label (left) */}
         <div className="absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
@@ -368,7 +409,7 @@ const QuadrantChart = ({
                         </div>
                       )}
                       
-                      {/* Tooltip */}
+                      {/* Tooltip - only on top card when hovered */}
                       {idx === group.points.length - 1 && (
                         <div 
                           className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 transition-opacity duration-150 pointer-events-none ${isPointHovered ? "opacity-100" : "opacity-0"}`}
@@ -384,7 +425,7 @@ const QuadrantChart = ({
                         </div>
                       )}
 
-                      {/* Delete button */}
+                      {/* Delete button - only on top card */}
                       {idx === group.points.length - 1 && (
                         <button
                           className={`absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity duration-150 hover:bg-red-600 z-[201] ${isPointHovered ? "opacity-100" : "opacity-0"}`}

@@ -295,7 +295,7 @@ No incluyas ningún otro texto besides el JSON.`;
     try {
       const lastMessages = getLastMessages();
       
-      // FIX: Map "ai" role to "assistant" for MiniMax API compatibility
+      // Map "ai" role to "assistant" for MiniMax API compatibility
       const conversationHistory = lastMessages.map(msg => ({
         role: msg.role === "user" ? ("user" as const) : ("assistant" as const),
         name: msg.role === "user" ? "User" : "MiniMax AI",
@@ -491,30 +491,6 @@ No incluyas ningún otro texto besides el JSON.`;
                 onRenamePoint={handleRenamePoint}
               />
             </Card>
-
-            {/* Legend */}
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-rose-100 border border-rose-200 rounded-xl p-3 text-center">
-                <div className="w-3 h-3 bg-rose-400 rounded-full mx-auto mb-1" />
-                <p className="text-xs font-medium text-rose-800">Alto {axes.yLabel}</p>
-                <p className="text-xs text-rose-600">Bajo {axes.xLabel}</p>
-              </div>
-              <div className="bg-blue-100 border border-blue-200 rounded-xl p-3 text-center">
-                <div className="w-3 h-3 bg-blue-400 rounded-full mx-auto mb-1" />
-                <p className="text-xs font-medium text-blue-800">Alto {axes.yLabel}</p>
-                <p className="text-xs text-blue-600">Alto {axes.xLabel}</p>
-              </div>
-              <div className="bg-green-100 border border-green-200 rounded-xl p-3 text-center">
-                <div className="w-3 h-3 bg-green-400 rounded-full mx-auto mb-1" />
-                <p className="text-xs font-medium text-green-800">Bajo {axes.yLabel}</p>
-                <p className="text-xs text-green-600">Bajo {axes.xLabel}</p>
-              </div>
-              <div className="bg-violet-100 border border-violet-200 rounded-xl p-3 text-center">
-                <div className="w-3 h-3 bg-violet-400 rounded-full mx-auto mb-1" />
-                <p className="text-xs font-medium text-violet-800">Bajo {axes.yLabel}</p>
-                <p className="text-xs text-violet-600">Alto {axes.xLabel}</p>
-              </div>
-            </div>
           </div>
 
           {/* Controls Section */}

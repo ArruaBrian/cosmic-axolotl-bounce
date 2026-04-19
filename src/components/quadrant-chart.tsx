@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 import {
   Dialog,
@@ -192,36 +192,34 @@ const QuadrantChart = ({
     }
   };
 
-  // Fixed quadrant labels: use "Alto"/"Bajo" + axis value (Aburrido/Divertido)
-  // NOT the yTop/yBottom values (Bien pagos/Mal pagos)
   const quadrantLabels = [
     { 
       q: "top-left", 
-      label: "Alto",           // Fixed: was axes.yTop which was "Bien pagos" - wrong!
-      sublabel: axes.xLeft,     // "Aburrido"
+      label: axes.yTop,
+      sublabel: axes.xLeft,
       style: "text-left top-[15px] left-[15px]"
     },
     { 
       q: "top-right", 
-      label: "Alto",           // Fixed: was axes.yTop which was "Bien pagos" - wrong!
-      sublabel: axes.xRight,    // "Divertido"
+      label: axes.yTop,
+      sublabel: axes.xRight,
       style: "text-right top-[15px] right-[15px]"
     },
     { 
       q: "bottom-left", 
-      label: "Bajo",           // Fixed: was axes.yBottom which was "Mal pagos" - wrong!
-      sublabel: axes.xLeft,     // "Aburrido"
+      label: axes.yBottom,
+      sublabel: axes.xLeft,
       style: "text-left bottom-[15px] left-[15px]"
     },
     { 
       q: "bottom-right", 
-      label: "Bajo",           // Fixed: was axes.yBottom which was "Mal pagos" - wrong!
-      sublabel: axes.xRight,    // "Divertido"
+      label: axes.yBottom,
+      sublabel: axes.xRight,
       style: "text-right bottom-[15px] right-[15px]"
     },
   ];
 
-  // Card deck stacking pattern
+  // Card deck stacking pattern: each card offset significantly so you can see them all
   const CARD_OFFSET_X = 12;
   const CARD_OFFSET_Y = 8;
 
@@ -374,7 +372,7 @@ const QuadrantChart = ({
                   const primaryColor = QUADRANT_COLORS[point.quadrant];
                   const isPointHovered = hovered === point.id;
                   
-                  // Card deck offset
+                  // Card deck offset: each card offset to the right and down
                   const offsetX = idx * CARD_OFFSET_X;
                   const offsetY = idx * CARD_OFFSET_Y;
                   
@@ -411,7 +409,7 @@ const QuadrantChart = ({
                         </div>
                       )}
                       
-                      {/* Tooltip */}
+                      {/* Tooltip - only on top card when hovered */}
                       {idx === group.points.length - 1 && (
                         <div 
                           className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 transition-opacity duration-150 pointer-events-none ${isPointHovered ? "opacity-100" : "opacity-0"}`}
@@ -427,7 +425,7 @@ const QuadrantChart = ({
                         </div>
                       )}
 
-                      {/* Delete button */}
+                      {/* Delete button - only on top card */}
                       {idx === group.points.length - 1 && (
                         <button
                           className={`absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-md transition-opacity duration-150 hover:bg-red-600 z-[201] ${isPointHovered ? "opacity-100" : "opacity-0"}`}

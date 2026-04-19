@@ -37,7 +37,9 @@ interface AxisConfig {
   xLabel: string;
   yLabel: string;
   xLeft: string;
+  xRight: string;
   yBottom: string;
+  yTop: string;
 }
 
 interface ChatMessage {
@@ -81,7 +83,9 @@ const DEFAULT_AXES: AxisConfig = {
   xLabel: "Eje X",
   yLabel: "Eje Y",
   xLeft: "Bajo",
-  yBottom: "Alto",
+  xRight: "Alto",
+  yBottom: "Bajo",
+  yTop: "Alto",
 };
 
 const Index = () => {
@@ -104,7 +108,9 @@ const Index = () => {
     xLabel: "Diversión al cursar",
     yLabel: "Ingresos",
     xLeft: "Aburrido",
-    yBottom: "Bien pagos",
+    xRight: "Divertido",
+    yBottom: "Mal pagos",
+    yTop: "Bien pagos",
   });
 
   const [newItem, setNewItem] = useState("");
@@ -187,15 +193,28 @@ const Index = () => {
   };
 
   const buildSystemPrompt = (mode: AIMode) => {
+    const quadrantDescriptions = {
+      "top-left": `${axes.yTop} pero ${axes.xLeft}`,
+      "top-right": `${axes.yTop} y ${axes.xRight}`,
+      "bottom-left": `${axes.yBottom} y ${axes.xLeft}`,
+      "bottom-right": `${axes.yBottom} pero ${axes.xRight}`,
+    };
+
     const baseContext = `Eres un asistente que ayuda a clasificar elementos en un gráfico de 4 cuadrantes.
 
 El usuario ha configurado su gráfico con los siguientes ejes:
-- Eje X: ${axes.xLabel} (de ${axes.xLeft} a derecha)
-- Eje Y: ${axes.yLabel} (de ${axes.yBottom} hacia arriba)
+- Eje X: ${axes.xLabel} (0=${axes.xLeft}, 10=${axes.xRight})
+- Eje Y: ${axes.yLabel} (0=${axes.yBottom}, 10=${axes.yTop})
 
 El centro del gráfico está en (5,5).
 
-Items existentes en el gráfico: ${points.map(p => `${p.name} (x:${p.x}, y:${p.y})`).join(", ") || "Ninguno"}`;
+Items existentes en el gráfico: ${points.map(p => `${p.name} (x:${p.x}, y:${p.y})`).join(", ") || "Ninguno"}
+
+Cuadrantes del gráfico:
+- Arriba-izquierda (x<5, y>5): ${quadrantDescriptions["top-left"]}
+- Arriba-derecha (x>5, y>5): ${quadrantDescriptions["top-right"]}
+- Abajo-izquierda (x<5, y<5): ${quadrantDescriptions["bottom-left"]}
+- Abajo-derecha (x>5, y<5): ${quadrantDescriptions["bottom-right"]}`;
 
     if (mode === "normal") {
       return `${baseContext}
@@ -224,8 +243,8 @@ Cuando el usuario activa el modo Plan, DEBES:
 
 IMPORTANTE sobre los ejes:
 - xLabel e yLabel: El nombre del eje (ej: "Ingresos", "Satisfacción", "Dificultad")
-- xLeft: Palabra opuesta izquierda del eje X (ej: "Bajo", "Aburrido", "Difícil")
-- yBottom: Palabra opuesta inferior del eje Y (ej: "Bajo", "Difícil", "No")
+- xLeft, xRight, yBottom, yTop: SIEMPRE deben ser PALABRAS opuestas (ej: "Bajo/Alto", "Fácil/Difícil", "Poco/Mucho", "No/Sí")
+- NUNCA uses números como "0" o "10" en los valores de los ejes
 
 Tu respuesta SIEMPRE debe incluir una propuesta completa.
 
@@ -240,7 +259,9 @@ Responde SOLO en formato JSON con este esquema:
       "xLabel": "nombre del eje X (ej: Ingresos)",
       "yLabel": "nombre del eje Y (ej: Satisfacción)", 
       "xLeft": "palabra opuesta izquierda (ej: Bajo)",
-      "yBottom": "palabra opuesta inferior (ej: No)"
+      "xRight": "palabra opuesta derecha (ej: Alto)",
+      "yBottom": "palabra opuesta abajo (ej: No)",
+      "yTop": "palabra opuesta arriba (ej: Sí)"
     }
   }
 }
@@ -274,6 +295,7 @@ No incluyas ningún otro texto besides el JSON.`;
     try {
       const lastMessages = getLastMessages();
       
+      // FIX: Map "ai" role to "assistant" for MiniMax API compatibility
       const conversationHistory = lastMessages.map(msg => ({
         role: msg.role === "user" ? ("user" as const) : ("assistant" as const),
         name: msg.role === "user" ? "User" : "MiniMax AI",
@@ -324,6 +346,7 @@ No incluyas ningún otro texto besides el JSON.`;
           timestamp: new Date(),
         };
 
+        // If in plan mode and there's a proposal, add it
         if (aiMode === "plan" && parsed.proposal) {
           aiMessage.planProposal = parsed.proposal;
         }
@@ -390,8 +413,10 @@ No incluyas ningún otro texto besides el JSON.`;
   };
 
   const handleApproveProposal = (proposal: PlanProposal) => {
+    // ALWAYS clear everything first in Plan mode
     setPoints([]);
     
+    // ALWAYS update axes in Plan mode
     if (proposal.newAxes) {
       setAxes(proposal.newAxes);
     } else {
@@ -399,6 +424,7 @@ No incluyas ningún otro texto besides el JSON.`;
     }
     showSuccess("Gráfico actualizado con la propuesta");
 
+    // Add new points
     if (proposal.newPoints && proposal.newPoints.length > 0) {
       const newDataPoints: DataPoint[] = proposal.newPoints.map(p => {
         const x = Math.round(Math.min(10, Math.max(0, p.x)));
@@ -416,6 +442,7 @@ No incluyas ningún otro texto besides el JSON.`;
       showSuccess(`${newDataPoints.length} elementos agregados`);
     }
 
+    // Remove the proposal from the message
     setChatMessages(prev => prev.map(msg => {
       if (msg.role === "ai" && msg.planProposal) {
         return { ...msg, planProposal: undefined };
@@ -464,6 +491,30 @@ No incluyas ningún otro texto besides el JSON.`;
                 onRenamePoint={handleRenamePoint}
               />
             </Card>
+
+            {/* Legend */}
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-rose-100 border border-rose-200 rounded-xl p-3 text-center">
+                <div className="w-3 h-3 bg-rose-400 rounded-full mx-auto mb-1" />
+                <p className="text-xs font-medium text-rose-800">Alto {axes.yLabel}</p>
+                <p className="text-xs text-rose-600">Bajo {axes.xLabel}</p>
+              </div>
+              <div className="bg-blue-100 border border-blue-200 rounded-xl p-3 text-center">
+                <div className="w-3 h-3 bg-blue-400 rounded-full mx-auto mb-1" />
+                <p className="text-xs font-medium text-blue-800">Alto {axes.yLabel}</p>
+                <p className="text-xs text-blue-600">Alto {axes.xLabel}</p>
+              </div>
+              <div className="bg-green-100 border border-green-200 rounded-xl p-3 text-center">
+                <div className="w-3 h-3 bg-green-400 rounded-full mx-auto mb-1" />
+                <p className="text-xs font-medium text-green-800">Bajo {axes.yLabel}</p>
+                <p className="text-xs text-green-600">Bajo {axes.xLabel}</p>
+              </div>
+              <div className="bg-violet-100 border border-violet-200 rounded-xl p-3 text-center">
+                <div className="w-3 h-3 bg-violet-400 rounded-full mx-auto mb-1" />
+                <p className="text-xs font-medium text-violet-800">Bajo {axes.yLabel}</p>
+                <p className="text-xs text-violet-600">Alto {axes.xLabel}</p>
+              </div>
+            </div>
           </div>
 
           {/* Controls Section */}
@@ -610,8 +661,8 @@ No incluyas ningún otro texto besides el JSON.`;
                                         {msg.planProposal.newAxes && (
                                           <div className="bg-white/50 rounded p-2 mb-2">
                                             <p className="text-[10px] font-medium">Nuevos ejes:</p>
-                                            <p className="text-[10px]"><strong>X:</strong> {msg.planProposal.newAxes.xLabel} ({msg.planProposal.newAxes.xLeft} → derecha)</p>
-                                            <p className="text-[10px]"><strong>Y:</strong> {msg.planProposal.newAxes.yLabel} ({msg.planProposal.newAxes.yBottom} → arriba)</p>
+                                            <p className="text-[10px]"><strong>X:</strong> {msg.planProposal.newAxes.xLabel} ({msg.planProposal.newAxes.xLeft} ←→ {msg.planProposal.newAxes.xRight})</p>
+                                            <p className="text-[10px]"><strong>Y:</strong> {msg.planProposal.newAxes.yLabel} ({msg.planProposal.newAxes.yBottom} ←→ {msg.planProposal.newAxes.yTop})</p>
                                           </div>
                                         )}
                                         
@@ -717,20 +768,40 @@ No incluyas ningún otro texto besides el JSON.`;
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs">X izquierdo</Label>
+                      <Label className="text-xs">X negativo (-)</Label>
                       <Input
                         value={axes.xLeft}
                         onChange={(e) => setAxes({ ...axes, xLeft: e.target.value })}
-                        placeholder="Izquierda del eje X"
+                        placeholder="Izquierda"
                         className="mt-1"
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Y inferior</Label>
+                      <Label className="text-xs">X positivo (+)</Label>
+                      <Input
+                        value={axes.xRight}
+                        onChange={(e) => setAxes({ ...axes, xRight: e.target.value })}
+                        placeholder="Derecha"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Y negativo (-)</Label>
                       <Input
                         value={axes.yBottom}
                         onChange={(e) => setAxes({ ...axes, yBottom: e.target.value })}
-                        placeholder="Parte inferior del eje Y"
+                        placeholder="Abajo"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Y positivo (+)</Label>
+                      <Input
+                        value={axes.yTop}
+                        onChange={(e) => setAxes({ ...axes, yTop: e.target.value })}
+                        placeholder="Arriba"
                         className="mt-1"
                       />
                     </div>

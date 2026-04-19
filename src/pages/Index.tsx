@@ -21,6 +21,7 @@ import {
   Sparkles,
   RotateCcw,
   Pencil,
+  Edit3,
 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -113,6 +114,10 @@ const Index = () => {
     yTop: "Bien pagos",
   });
 
+  const [title, setTitle] = useState("Clasificador de 4 Cuadrantes");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState("");
+
   const [newItem, setNewItem] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -190,6 +195,32 @@ const Index = () => {
       return p;
     }));
     showSuccess("Nombre actualizado");
+  };
+
+  const handleStartEditTitle = () => {
+    setTitleInput(title);
+    setIsEditingTitle(true);
+  };
+
+  const handleSaveTitle = () => {
+    if (titleInput.trim()) {
+      setTitle(titleInput.trim());
+      showSuccess("Título actualizado");
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handleCancelTitleEdit = () => {
+    setIsEditingTitle(false);
+    setTitleInput("");
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSaveTitle();
+    } else if (e.key === "Escape") {
+      handleCancelTitleEdit();
+    }
   };
 
   const buildSystemPrompt = (mode: AIMode) => {
@@ -295,7 +326,6 @@ No incluyas ningún otro texto besides el JSON.`;
     try {
       const lastMessages = getLastMessages();
       
-      // FIX: Map "ai" role to "assistant" for MiniMax API compatibility
       const conversationHistory = lastMessages.map(msg => ({
         role: msg.role === "user" ? ("user" as const) : ("assistant" as const),
         name: msg.role === "user" ? "User" : "MiniMax AI",
@@ -346,7 +376,6 @@ No incluyas ningún otro texto besides el JSON.`;
           timestamp: new Date(),
         };
 
-        // If in plan mode and there's a proposal, add it
         if (aiMode === "plan" && parsed.proposal) {
           aiMessage.planProposal = parsed.proposal;
         }
@@ -413,10 +442,8 @@ No incluyas ningún otro texto besides el JSON.`;
   };
 
   const handleApproveProposal = (proposal: PlanProposal) => {
-    // ALWAYS clear everything first in Plan mode
     setPoints([]);
     
-    // ALWAYS update axes in Plan mode
     if (proposal.newAxes) {
       setAxes(proposal.newAxes);
     } else {
@@ -424,7 +451,6 @@ No incluyas ningún otro texto besides el JSON.`;
     }
     showSuccess("Gráfico actualizado con la propuesta");
 
-    // Add new points
     if (proposal.newPoints && proposal.newPoints.length > 0) {
       const newDataPoints: DataPoint[] = proposal.newPoints.map(p => {
         const x = Math.round(Math.min(10, Math.max(0, p.x)));
@@ -442,7 +468,6 @@ No incluyas ningún otro texto besides el JSON.`;
       showSuccess(`${newDataPoints.length} elementos agregados`);
     }
 
-    // Remove the proposal from the message
     setChatMessages(prev => prev.map(msg => {
       if (msg.role === "ai" && msg.planProposal) {
         return { ...msg, planProposal: undefined };
@@ -471,9 +496,38 @@ No incluyas ningún otro texto besides el JSON.`;
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Clasificador de 4 Cuadrantes
-          </h1>
+          {isEditingTitle ? (
+            <div className="flex items-center justify-center gap-2">
+              <Input
+                value={titleInput}
+                onChange={(e) => setTitleInput(e.target.value)}
+                onKeyDown={handleTitleKeyDown}
+                autoFocus
+                className="text-3xl md:text-4xl font-bold bg-white text-center max-w-md"
+                placeholder="Nombre del clasificador"
+              />
+              <Button size="sm" onClick={handleSaveTitle}>
+                <Check className="w-4 h-4" />
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleCancelTitleEdit}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 group">
+              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2 cursor-pointer" onClick={handleStartEditTitle}>
+                {title}
+              </h1>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={handleStartEditTitle}
+              >
+                <Edit3 className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
           <p className="text-slate-600">
             Arrastra los puntos o usa IA para clasificar elementos
           </p>

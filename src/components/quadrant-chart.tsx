@@ -289,19 +289,13 @@ const QuadrantChart = ({
           );
         })}
 
-        {/* Y-axis label (left side - shows yTop at top, yBottom at bottom) */}
-        <div className="absolute left-1 top-1/2 -translate-y-1/2 -translate-y-4 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
-          {axes.yTop}
-        </div>
-        <div className="absolute left-1 top-1/2 translate-y-4 text-xs font-semibold text-slate-500 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
-          {axes.yBottom}
+        {/* Y-axis label (left) */}
+        <div className="absolute left-1 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
+          {axes.yLabel}
         </div>
 
-        {/* Y-axis label (right side - shows yTop at top, yBottom at bottom) */}
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 -translate-y-4 text-xs font-semibold text-slate-600 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
-          {axes.yTop}
-        </div>
-        <div className="absolute right-1 top-1/2 translate-y-4 text-xs font-semibold text-slate-500 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
+        {/* Y-axis opposite label (right) */}
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 rotate-90 text-xs font-semibold text-slate-500 bg-white/90 px-3 py-1 rounded-full shadow-sm z-30 whitespace-nowrap">
           {axes.yBottom}
         </div>
 
